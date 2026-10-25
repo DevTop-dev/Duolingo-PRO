@@ -4188,8 +4188,11 @@ function One() {
                 document.querySelector('.MYehf').style.display = "flex";
                 document.querySelector('.MYehf').style.gap = "20px";
             } else if (document.querySelector(".FmlUF") !== null) { // Story
-                document.querySelector('._3TJzR').style.display = "flex";
-                document.querySelector('._3TJzR').style.gap = "20px";
+                const storyBtnRow = document.querySelector('._3TJzR') || target?.parentElement;
+                if (storyBtnRow) {
+                    storyBtnRow.style.display = "flex";
+                    storyBtnRow.style.gap = "20px";
+                }
             } else if (chessLessonTarget) {
                 let chessLessonRow = document.getElementById(CHESS_LESSON_BUTTON_ROW_ID);
                 if (!chessLessonRow) {
@@ -12972,6 +12975,9 @@ function One() {
         } else {
             challengeType = 'error';
         }
+        if (window.sol && window.sol.type === 'gap-fill') {
+            challengeType = 'Story Gap Fill';
+        }
 
         let questionKey;
         if (window.sol && window.sol.id) {
@@ -13017,7 +13023,32 @@ function One() {
             }
             : null;
 
-        if (challengeType === 'error') {
+        if (challengeType === 'Story Gap Fill') {
+            const gapSleep = (ms) => new Promise(r => setTimeout(r, ms));
+            const clickGapContinue = async (timeout) => {
+                const t0 = Date.now();
+                while (Date.now() - t0 < timeout) {
+                    const btn = document.querySelector('[data-test="stories-player-continue"]')
+                        || document.querySelector('[data-test="stories-player-done"]')
+                        || document.querySelector('[data-test="player-next"]');
+                    if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
+                        btn.click();
+                        return true;
+                    }
+                    await gapSleep(100);
+                }
+                return false;
+            };
+            await handleChallenge(challengeType);
+            if (check) {
+                const ok = await clickGapContinue(2000);
+                console.log('[GapFill] continue clicked:', ok);
+                if (ok && skip) {
+                    await gapSleep(700);
+                    await clickGapContinue(1500);
+                }
+            }
+        } else if (challengeType === 'error') {
             await Promise.race([
                 clickCheck(),
                 new Promise(resolve => setTimeout(resolve, 500))
@@ -13220,6 +13251,8 @@ function One() {
                     return "Story Point to Phrase"
                 } else if (window.sol.type === "match") {
                     return "Story Pairs"
+                } else if (window.sol.type === "gap-fill") {
+                    return "Story Gap Fill"
                 }
             } else {
                 // Lesson
@@ -13791,6 +13824,27 @@ function One() {
             });
 
 
+        } else if (challengeType === 'Story Gap Fill') {
+            const gapChoices = window.sol.choices || [];
+            const gapIndices = window.sol.correctIndices || [];
+            const wordOf = (c) => (typeof c === 'string' ? c : (c && c.text) || '').trim();
+            const findGapButton = (word) => {
+                let list = Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'));
+                let hit = list.find(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true' && getCleanButtonText(b) === word);
+                if (hit) return hit;
+                list = Array.from(document.querySelectorAll('button')).filter(b =>
+                    !/player-|stories-player|quit|skip/.test(b.getAttribute('data-test') || '')
+                );
+                return list.find(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true' && (b.innerText || '').trim() === word);
+            };
+            console.log('[GapFill] words to click:', gapIndices.map(i => wordOf(gapChoices[i])));
+            for (const index of gapIndices) {
+                const word = wordOf(gapChoices[index]);
+                const button = findGapButton(word);
+                console.log('[GapFill] click', word, button ? 'found' : 'NOT FOUND');
+                if (button) button.click();
+                await sleep(250);
+            }
         } else if (challengeType === 'Session Complete') {
         } else if (challengeType === 'Story Arrange') {
             let choices = document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)');
