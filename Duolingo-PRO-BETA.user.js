@@ -1,26 +1,28 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.05.1
-// @description  Duolingo XP farmer, with Gems, Free Duolingo Max, and Chess support. Working as of September 2026.
+// @version      3.1ALPHA.05.2
+// @description  The fastest Duolingo XP farmer, now with Gems and Free Duolingo Max, working as of October 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
 // @match        *://*.duolingo.cn/*
 // @icon         https://www.duolingopro.net/static/favicons/duo/128/light/primary.png
 // @require      https://cdn.jsdelivr.net/npm/@intrastellar/squircle@0.5.2/squircle.js
 // @require      https://cdn.jsdelivr.net/npm/@intrastellar/numbers@0.1.0/dist/index.js
+// @require      https://unpkg.com/stockfish@18.0.8/bin/stockfish-18-asm.js
+// @require      https://unpkg.com/@intrastellar/kairos@1.0.1/model.js
 // @grant        GM_log
 // ==/UserScript==
 
 // USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 // YOU CAN ALSO REVIEW THE TERMS AND CONDITIONS AT https://www.duolingopro.net/terms ALONG WITH THE PRIVACY POLICY AT https://www.duolingopro.net/privacy
 
-const VERSION_NUMBER = "12";
-const STORAGE_LOCAL_VERSION = "12";
-const STORAGE_SESSION_VERSION = "12";
-const VERSION_NAME = "BETA.05.1";
-const VERSION_FULL = "3.1BETA.05.1";
-const VERSION_FORMAL = "3.1 BETA.05.1";
+const VERSION_NUMBER = "06";
+const STORAGE_LOCAL_VERSION = "06";
+const STORAGE_SESSION_VERSION = "06";
+const VERSION_NAME = "BETA.05.2";
+const VERSION_FULL = "3.1BETA.05.2";
+const VERSION_FORMAL = "3.1 BETA.05.2";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
 let autoServerURL = "https://autoserver.duolingopro.net";
@@ -49,7 +51,7 @@ let reactTraverseUp = DEFAULT_REACT_TRAVERSE_UP;
 const region = new Intl.Locale(navigator.language).maximize().region;
 const measurementSystem = ["US", "LR", "MM"].includes(region) ? "ussystem" : "metric";
 
-const debug = false;
+const debug = alpha;
 const flag01 = false;
 const flag02 = false;
 const flag03 = false;
@@ -257,24 +259,36 @@ const systemText = {
             automaticUpdates: "Automatic Updates",
             automaticUpdatesDescription: "Duolingo PRO 3.1 will automatically update itself when there's a new version available.",
             savingAndApplying: "SAVING AND APPLYING",
-            showSolveButtons: "Show Solve Buttons",
-            showSolveButtonsDescription: "In lessons and practices, see the solve and solve all buttons.",
-            showAutoServerButton: "Show AutoServer Button",
+            showSolveButtons: "Show solve buttons",
+            showSolveButtonsDescription: "See the solve and solve all buttons in lessons and practices.",
+            showAutoServerButton: "Show AutoServer",
             showAutoServerButtonDescription: "See the AutoServer by Duolingo PRO button in your Duolingo menubar.",
-            randomLegacySolveSpeed: "Random Legacy Solve Speed",
-            randomLegacySolveSpeedDescription: "Legacy will wait a random amount of seconds before solving.",
+            randomLegacySolveSpeed: "Random solve speed for AutoSolve",
+            randomLegacySolveSpeedDescription: "AutoSolve will wait a random amount of time before solving.",
             customRandomLegacySolveSpeed: "Custom Random Legacy Solve Speed",
             customRandomLegacySolveSpeedDescription: "Legacy will wait a random amount of seconds in between these two numbers before solving.",
-            helpImproveTitle: "Help Us Make Duolingo PRO Better",
+            helpImproveTitle: "Help us make Duolingo PRO better",
             helpImproveDescription: "Allow Duolingo PRO to collect anonymous usage data for us to improve the script.",
             helpImproveOnboardingDescription: "Allow Duolingo PRO to automatically send anonymous bug reports and usage data to help us improve the script.",
-            reduceEffects: "Reduce Processing Intensive Effects",
+            reduceEffects: "Reduce processing intensive effects",
             reduceEffectsDescription: "Reduce processing intensive effects by disabling confetti, starfield and other visual animations.",
             freeLocalMax: "Free On-Client Duolingo Max",
             freeLocalMaxDescription: "Skip the worry of running out of hearts, get free entry to legendary challenges, access to personalized practice, and learn without ads. Only works on-client.",
             showSuperTrial: "Show Super Duolingo Trial Function",
             showSuperTrialDescription: "This function rarely works and is currently being deprecated. We recommend you to use Free Duolingo Max instead.",
-            customRandomLegacySolveSpeedTitle: "Custom Random Legacy Solve Speed"
+            customRandomLegacySolveSpeedTitle: "Custom Random Legacy Solve Speed",
+            smartPvpPause: "Smart pause for AutoPlay in PvP matches",
+            smartPvpPauseDescription: "AutoPlay will wait about as long as a human player would before making a move in PvP matches.",
+            smartPracticePause: "Smart pause in practice matches",
+            smartPracticePauseDescription: "AutoPlay will also wait about as long as a human player would before making a move in practice matches with Oscar.",
+            pauseSpeed: "Speed",
+            pauseSpeedDescription: "Adjust how long AutoPlay waits before each move. Slower pauses longer; faster moves sooner.",
+            range: "Range",
+            rangeDescription: "Adjust the range and graph to control how long AutoSolve waits and which delays are more likely. Higher parts of the graph are chosen more often; a flat graph gives every delay an equal chance.",
+            restoreDefaults: "Restore default settings",
+            restoreDefaultsDescription: "Restore all Duolingo PRO settings to their original defaults.",
+            resetPro: "Reset Duolingo PRO",
+            resetProDescription: "If you are running into issues with Duolingo PRO, try resetting."
         },
         feedback: {
             title: "Feedback",
@@ -387,16 +401,16 @@ const systemText = {
         },
         stats: {
             since: "since {date}",
-            modernTitle: "3.1 Stats",
+            modernTitle: "3.1 Mode Stats",
             xpGained: "XP Gained:",
             gemsGained: "Gems Gained:",
             streakGained: "Streak Gained:",
-            heartRefillsRequested: "Heart Refills Requested:",
+            heartRefillsRequested: "Number of Heart Refills Requested:",
             streakFreezesRequested: "Streak Freezes Requested:",
             doubleXpBoostsRequested: "Double XP Boosts Requested:",
             questCompletesRequested: "Quest Completes Requested:",
             legacyTitle: "Legacy Mode Stats",
-            lessonsSolved: "Lessons Solved:",
+            lessonsSolved: "Number of Lessons Solved:",
             questionsSolved: "Questions Solved:"
         },
         autoserver: {
@@ -717,17 +731,18 @@ function Two() {
     HTML2 = `
 <canvas style="position: fixed; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100vh; z-index: 211; pointer-events: none;" id="DLP_Confetti_Canvas"></canvas>
 <div class="DLP_Notification_Main"></div>
-<div class="DLP_Main">
-    <div class="DLP_HStack_8" style="align-self: flex-end;">
-        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Switch_Legacy_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
+<div class="DLP_Main DLP_Main_Hidden" id="DLP_Main_1_ID">
+    <div class="DLP_HStack_8 DLP_Main_Toolbar" style="align-self: flex-end;">
+        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Switch_Legacy_Button_1_ID" style="display: none; opacity: 0; filter: blur(8px); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􀱏</p>
             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue)); white-space: nowrap;">${system("nav.switchToLegacy")}</p>
         </div>
-        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Hide_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); flex: none; backdrop-filter: blur(16px);">
-            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􀋮</p>
-            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${system("nav.show")}</p>
-        </div>
+        <button type="button" class="DLP_Button_Style_1 DLP_Magnetic_Hover_1 DLP_Menu_Toggle" id="DLP_Hide_Button_1_ID" aria-controls="DLP_Main_Content_1_ID" aria-expanded="false" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); flex: none; backdrop-filter: blur(16px);">
+            <span class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" aria-hidden="true" style="color: rgb(var(--DLP-blue));">􀋮</span>
+            <span class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${system("solver.show")}</span>
+        </button>
     </div>
+    <div class="DLP_Main_Content" id="DLP_Main_Content_1_ID" inert aria-hidden="true">
     <div class="DLP_Main_Box">
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_1_ID" style="display: block;">
             <div class="DLP_VStack_8">
@@ -1397,14 +1412,22 @@ function Two() {
                 </div>
                 <div style="overflow-y: auto; margin: 0 -16px; padding: 0 16px;">
                     <div class="DLP_VStack_8">
-                        <div id="DLP_Settings_Show_Solve_Buttons_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
+                        <div class="DLP_HStack_8" style="justify-content: center;"><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID">􀍟</p><p class="DLP_Text_Style_1 DLP_NoSelect">General</p><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div></div>
+                        <div id="DLP_Settings_Reduce_Effects_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">${system("settings.showSolveButtons")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.showSolveButtonsDescription")}</p>
+                                <p class="DLP_Text_Style_1">${system("settings.reduceEffects")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.reduceEffectsDescription")}</p>
                             </div>
-                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
-                            </div>
+                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p></div>
+                        </div>
+                        <div class="DLP_HStack_8" style="justify-content: center;"><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID">􀍟</p><p class="DLP_Text_Style_1 DLP_NoSelect">3.1 Mode</p><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div></div>
+                        <div id="DLP_Settings_Free_Local_Super_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;"><p class="DLP_Text_Style_1">${system("settings.freeLocalMax")}</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.freeLocalMaxDescription")}</p></div>
+                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p></div>
+                        </div>
+                        <div id="DLP_Settings_Show_Super_Trial_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;"><p class="DLP_Text_Style_1">${system("settings.showSuperTrial")}</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.showSuperTrialDescription")}</p></div>
+                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p></div>
                         </div>
                         <div id="DLP_Settings_Show_AutoServer_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;${alpha ? '' : ' display: none;'}">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
@@ -1415,6 +1438,11 @@ function Two() {
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
                             </div>
                         </div>
+                        <div class="DLP_HStack_8" style="justify-content: center;"><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID">􀍟</p><p class="DLP_Text_Style_1 DLP_NoSelect">Legacy Mode</p><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div></div>
+                        <div id="DLP_Settings_Show_Solve_Buttons_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;"><p class="DLP_Text_Style_1">${system("settings.showSolveButtons")}</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.showSolveButtonsDescription")}</p></div>
+                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p></div>
+                        </div>
                         <div id="DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
                                 <p class="DLP_Text_Style_1">${system("settings.randomLegacySolveSpeed")}</p>
@@ -1424,49 +1452,43 @@ function Two() {
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
                             </div>
                         </div>
-                        <div id="DLP_Settings_Legacy_Solve_Speed_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
-                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">${system("settings.customRandomLegacySolveSpeedTitle")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.customRandomLegacySolveSpeedDescription")}</p>
+                        <div id="DLP_Settings_Legacy_Solve_Speed_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center; flex-wrap: wrap; margin-left: 8px; padding-left: 16px; position: relative;">
+                            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;" aria-hidden="true"></div>
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 100%;">
+                                <div class="DLP_HStack_Auto">
+                                    <p class="DLP_Text_Style_1">${system("settings.range")}</p>
+                                    <button type="button" id="DLP_Settings_Range_Reset_1_ID" class="DLP_Hover_1" aria-label="Reset range to default" style="display: flex; padding: 0; justify-content: center; align-items: center; border: none; background: none; cursor: pointer;"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID">􁹠</p></button>
+                                </div>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.rangeDescription")}</p>
                             </div>
-                            <div class="DLP_Input_Style_1_Active" style="flex: none; width: 112px;">
-                                <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1" style="text-align: center;">
-                                <input type="text" placeholder="0" id="DLP_Inset_Input_2_ID" class="DLP_Input_Input_Style_1" style="text-align: center;">
+                            <div class="DLP_HStack_Auto" style="order: 3; width: 100%;">
+                                <div class="DLP_Input_Style_1_Active" style="flex: none; width: 72px; height: 36px; padding: 8px;"><input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1" style="text-align: center;"></div>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">-</p>
+                                <div class="DLP_Input_Style_1_Active" style="flex: none; width: 72px; height: 36px; padding: 8px;"><input type="text" placeholder="0" id="DLP_Inset_Input_2_ID" class="DLP_Input_Input_Style_1" style="text-align: center;"></div>
                             </div>
+                            <div id="DLP_Settings_Random_Solve_Distribution_Graph_1_ID" class="DLP_HStack_4" style="order: 2; width: 100%; height: 64px; align-items: flex-end; justify-content: space-between; position: relative;">${Array.from({ length: 16 }, () => '<div data-dlp-distribution-bar style="flex: 0 0 16px; width: 16px; height: 16px; background: rgba(var(--DLP-blue), 0.1); outline: 2px solid rgba(var(--DLP-blue), 0.2); outline-offset: -2px; border-radius: 4px;" aria-hidden="true"></div>').join('')}<button type="button" id="DLP_Settings_Random_Solve_Distribution_Knob_1_ID" class="DLP_Hover_1" aria-label="AutoSolve delay distribution" style="display: flex; width: 24px; height: 24px; padding: 0; justify-content: center; align-items: center; position: absolute; left: 50%; top: 40px; transform: translateX(-50%); flex: none; border: none; border-radius: 12px; corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--color-black-white), 0.20); outline-offset: -2px; background: rgb(var(--DLP-blue)); touch-action: none; cursor: grab; z-index: 1;"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF; font-size: 12px; pointer-events: none;">􀧐</p></button></div>
                         </div>
+                        <div id="DLP_Settings_Smart_Pvp_Pause_1_ID" class="DLP_HStack_8"><div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;"><p class="DLP_Text_Style_1">${system("settings.smartPvpPause")}</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.smartPvpPauseDescription")}</p></div><div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p></div></div>
+                        <div id="DLP_Settings_Pause_Speed_1_ID" class="DLP_VStack_8" style="align-items: stretch; margin-left: 8px; padding-left: 16px; position: relative;">
+                            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;" aria-hidden="true"></div>
+                            <div class="DLP_VStack_0" style="align-items: flex-start;">
+                                <div class="DLP_HStack_Auto">
+                                    <p class="DLP_Text_Style_1">${system("settings.pauseSpeed")}</p>
+                                    <button type="button" id="DLP_Settings_Pause_Speed_Reset_1_ID" class="DLP_Hover_1" aria-label="Reset speed to default" style="display: flex; padding: 0; justify-content: center; align-items: center; border: none; background: none; cursor: pointer;"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID">􁹠</p></button>
+                                </div>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.pauseSpeedDescription")}</p>
+                            </div>
+                            <div id="DLP_Settings_Pause_Speed_Input_1_ID" class="DLP_Hover_1" role="slider" tabindex="0" aria-label="AutoPlay pause speed" aria-valuemin="0" aria-valuemax="100" style="display: flex; width: 100%; height: 32px; padding: 0 6px; box-sizing: border-box; justify-content: center; align-items: center; border-radius: 16px; corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--color-black-white), 0.20); outline-offset: -2px; background: rgb(var(--DLP-blue)); transition: transform 0.4s cubic-bezier(0.16, 1, 0.32, 1); position: relative; touch-action: none;"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF; position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 20px; pointer-events: none;">􀀁</p></div>
+                            <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="flex: 1 0 0; text-align: left;">Slow</p><p class="DLP_Text_Style_1" style="flex: 1 0 0; text-align: center;">Normal</p><p class="DLP_Text_Style_1" style="flex: 1 0 0; text-align: right;">Fast</p></div>
+                        </div>
+                        <div id="DLP_Settings_Smart_Practice_Pause_1_ID" class="DLP_HStack_8" style="margin-left: 8px; padding-left: 16px; position: relative;"><div style="position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;" aria-hidden="true"></div><div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;"><p class="DLP_Text_Style_1">${system("settings.smartPracticePause")}</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.smartPracticePauseDescription")}</p></div><div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p></div></div>
+                        <div class="DLP_HStack_8" style="justify-content: center;"><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID">􀑁</p><p class="DLP_Text_Style_1 DLP_NoSelect">Analytics</p><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div></div>
                         <div id="DLP_Settings_Help_Us_Make_Better_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
                                 <p class="DLP_Text_Style_1">${system("settings.helpImproveTitle")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.helpImproveDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1" style="${alpha ? 'opacity: 0.5; pointer-events: none; cursor: not-allowed;' : ''}">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
-                            </div>
-                        </div>
-                        <div id="DLP_Settings_Reduce_Effects_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
-                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">${system("settings.reduceEffects")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.reduceEffectsDescription")}</p>
-                            </div>
-                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
-                            </div>
-                        </div>
-                        <div id="DLP_Settings_Free_Local_Super_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
-                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">${system("settings.freeLocalMax")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.freeLocalMaxDescription")}</p>
-                            </div>
-                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
-                            </div>
-                        </div>
-                        <div id="DLP_Settings_Show_Super_Trial_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
-                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">${system("settings.showSuperTrial")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.showSuperTrialDescription")}</p>
-                            </div>
-                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
                             </div>
                         </div>
@@ -1479,54 +1501,23 @@ function Two() {
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
                             </div>
                         </div>
-                        <div id="DLP_Settings_Modern_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s);">
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">${system("stats.modernTitle")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.xpGained")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.gemsGained")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.streakGained")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.heartRefillsRequested")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.streakFreezesRequested")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.doubleXpBoostsRequested")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.questCompletesRequested")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                        </div>
-                        <div id="DLP_Settings_Legacy_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s);">
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">${system("stats.legacyTitle")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.lessonsSolved")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.questionsSolved")}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
-                            </div>
-                        </div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1">${system("stats.modernTitle")}</p><p id="DLP_Settings_Modern_Stats_Since_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.xpGained")}</p><p id="DLP_Settings_Modern_Stats_XP_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.gemsGained")}</p><p id="DLP_Settings_Modern_Stats_Gems_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.streakGained")}</p><p id="DLP_Settings_Modern_Stats_Streak_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.heartRefillsRequested")}</p><p id="DLP_Settings_Modern_Stats_Hearts_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.streakFreezesRequested")}</p><p id="DLP_Settings_Modern_Stats_Freezes_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.doubleXpBoostsRequested")}</p><p id="DLP_Settings_Modern_Stats_Boosts_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.questCompletesRequested")}</p><p id="DLP_Settings_Modern_Stats_Quests_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1">${system("stats.legacyTitle")}</p><p id="DLP_Settings_Legacy_Stats_Since_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.lessonsSolved")}</p><p id="DLP_Settings_Legacy_Stats_Lessons_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("stats.questionsSolved")}</p><p id="DLP_Settings_Legacy_Stats_Questions_1_ID" class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);"></p></div>
+                        <div class="DLP_HStack_8" style="justify-content: center;"><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID">􀇿</p><p class="DLP_Text_Style_1 DLP_NoSelect">Caution</p><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div></div>
+                        <div class="DLP_HStack_8" style="justify-content: space-between;"><div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;"><p class="DLP_Text_Style_1">${system("settings.restoreDefaults")}</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.restoreDefaultsDescription")}</p></div><button type="button" id="DLP_Settings_Restore_Defaults_1_ID" class="DLP_Hover_1" aria-label="${system("settings.restoreDefaults")}" style="display: flex; width: 32px; height: 32px; padding: 0; justify-content: center; align-items: center; flex: none; border: none; border-radius: 16px; corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--color-black-white), 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink)); transition: transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀅈</p></button></div>
+                        <div class="DLP_HStack_8" style="justify-content: space-between;"><div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;"><p class="DLP_Text_Style_1">${system("settings.resetPro")}</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.resetProDescription")}</p></div><button type="button" id="DLP_Settings_Reset_Pro_1_ID" class="DLP_Hover_1" aria-label="${system("settings.resetPro")}" style="display: flex; width: 32px; height: 32px; padding: 0; justify-content: center; align-items: center; flex: none; border: none; border-radius: 16px; corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--color-black-white), 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink)); transition: transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);"><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀅈</p></button></div>
+                        <div class="DLP_HStack_8" style="justify-content: center;"><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div><p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID">􀅵</p><p class="DLP_Text_Style_1 DLP_NoSelect">About</p><div style="height: 2px; flex: 1; background: rgba(var(--color-wolf), 0.16); border-radius: 2px;"></div></div>
+                        <div class="DLP_HStack_Auto"><p class="DLP_Text_Style_1">Version</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${VERSION_FULL}</p></div>
+                        <div class="DLP_HStack_Auto" style="padding-bottom: 8px;"><p class="DLP_Text_Style_1">Client</p><p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${storageLocal.random16}</p></div>
                     </div>
                 </div>
                 <div class="DLP_HStack_8">
@@ -1755,6 +1746,37 @@ function Two() {
             </div>
         </div>
 
+        <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_13_ID" style="display: none;">
+            <div class="DLP_VStack_8">
+                <div class="DLP_HStack_Auto_Top">
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${system("nav.donate")}</p>
+                    </div>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                </div>
+                <a href="${serverURL}/patreon" target="_blank" rel="noopener noreferrer" class="DLP_VStack_0 DLP_Magnetic_Hover_1" style="height: 128px; box-sizing: border-box; padding: 12px; justify-content: space-between; align-items: flex-start; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; text-decoration: none;">
+                    <svg width="17" height="19" viewBox="0 0 17 19" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.5 5.90755C16.4968 3.60922 14.6997 1.72555 12.5913 1.04588C9.97298 0.201877 6.51973 0.324211 4.01956 1.49921C0.989301 2.92355 0.0373889 6.04355 0.00191597 9.15522C-0.0271986 11.7136 0.229143 18.4517 4.04482 18.4997C6.87998 18.5356 7.30214 14.8967 8.61397 13.1442C9.5473 11.8974 10.749 11.5452 12.2284 11.1806C14.7709 10.5537 16.5037 8.55506 16.5 5.90755Z"/>
+                    </svg>
+                    <div class="DLP_VStack_0" style="align-items: flex-start;">
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(255, 255, 255, 0.70);">Don’t have a membership yet?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Donate on Patreon</p>
+                    </div>
+                </a>
+                <a href="${serverURL}/patreon/dashboard/signin" target="_blank" rel="noopener noreferrer" class="DLP_VStack_0 DLP_Magnetic_Hover_1" style="height: 128px; box-sizing: border-box; padding: 12px; justify-content: space-between; align-items: flex-start; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; text-decoration: none;">
+                    <svg width="17" height="19" viewBox="0 0 17 19" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.5 5.90755C16.4968 3.60922 14.6997 1.72555 12.5913 1.04588C9.97298 0.201877 6.51973 0.324211 4.01956 1.49921C0.989301 2.92355 0.0373889 6.04355 0.00191597 9.15522C-0.0271986 11.7136 0.229143 18.4517 4.04482 18.4997C6.87998 18.5356 7.30214 14.8967 8.61397 13.1442C9.5473 11.8974 10.749 11.5452 12.2284 11.1806C14.7709 10.5537 16.5037 8.55506 16.5 5.90755Z"/>
+                    </svg>
+                    <div class="DLP_VStack_0" style="align-items: flex-start;">
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(255, 255, 255, 0.70);">Already have a membership?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Setup or manage benefits</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+    </div>
     </div>
 </div>
 `;
@@ -1941,30 +1963,62 @@ html[data-dlp-rtl-layout] [data-dlp-rtl-directional-icon] {
 
 
 .DLP_Main {
+    --DLP-menu-bottom: 16px;
+    --DLP-menu-toolbar-height: 40px;
+    position: fixed;
+    right: 16px;
+    bottom: var(--DLP-menu-bottom);
+    z-index: 2;
+}
+html[data-dlp-rtl-layout] .DLP_Main {
+    left: 16px;
+    right: auto;
+}
+.DLP_Menu_Toggle {
+    appearance: none;
+    border: none;
+    font: inherit;
+    white-space: nowrap;
+}
+.DLP_Menu_Toggle:focus-visible {
+    box-shadow: 0 0 0 3px rgba(var(--DLP-blue), 0.35);
+}
+.DLP_Main {
     display: inline-flex;
     flex-direction: column;
     justify-content: flex-end;
     align-items: flex-end;
     gap: 8px;
 
-    position: fixed;
-    right: 16px;
-    bottom: 16px;
-    z-index: 2;
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.32, 1);
+}
+.DLP_Main_Toolbar {
+    height: var(--DLP-menu-toolbar-height);
+    flex: none;
+}
+.DLP_Main_Hidden {
+    /* Keep the same toolbar at the viewport anchor as the content changes height. */
+    transform: translateY(calc(100% - var(--DLP-menu-toolbar-height)));
+}
+.DLP_Main_Content {
+    transition: filter 0.8s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1), visibility 0s;
+}
+.DLP_Main_Hidden .DLP_Main_Content {
+    filter: blur(8px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: filter 0.8s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1), visibility 0s 0.8s;
 }
 @media (max-width: 699px) {
     .DLP_Main {
-        display: inline-flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        align-items: flex-end;
-        gap: 8px;
-
-        position: fixed;
-        right: 16px;
-        bottom: 16px;
-        z-index: 2;
-        margin-bottom: 80px;
+        --DLP-menu-bottom: 96px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .DLP_Main,
+    .DLP_Main .DLP_Main_Content {
+        transition: none;
     }
 }
 .DLP_Main_Box {
@@ -2979,6 +3033,10 @@ function One() {
                 localSuper: false,
                 randomSolveSpeed: false,
                 randomSolveSpeedRange: [2.8, 12.4],
+                randomSolveSpeedDistribution: { peak: 0.5, flatness: 0 },
+                smartPvpPause: true,
+                smartPracticePause: false,
+                pauseSpeed: 50,
                 showSuper: false
             },
             stats: {
@@ -3290,13 +3348,6 @@ function One() {
         document.documentElement.setAttribute('data-dlp-rtl-layout', 'true');
     } else {
         document.documentElement.removeAttribute('data-dlp-rtl-layout');
-    }
-    if (dlpIsRTLLayout) {
-        const mainMenu = document.querySelector('.DLP_Main');
-        if (mainMenu) {
-            mainMenu.style.left = '16px';
-            mainMenu.style.right = 'auto';
-        }
     }
     setupRTLDirectionalIconMarking();
 
@@ -3894,6 +3945,7 @@ function One() {
             }, 400);
         }
     }
+
 
     window.onfocus = () => {
         windowBlurState = true;
@@ -4541,6 +4593,7 @@ function One() {
         "DLP_Universal_Back_1_Button_1_ID": [1],
 
         "DLP_Main_Settings_1_Button_1_ID": [7],
+        "DLP_Main_Donate_Button_1_ID": [13],
 
         //"DLP_Main_Feedback_1_Button_1_ID": [8],
         "DLP_Main_Feedback_1_Button_1_ID": [11],
@@ -4550,6 +4603,7 @@ function One() {
         "DLP_Main_Terms_1_Button_1_ID": [5],
 
         "DLP_Secondary_Settings_1_Button_1_ID": [7],
+        "DLP_Secondary_Donate_Button_1_ID": [13],
 
         //"DLP_Secondary_Feedback_1_Button_1_ID": [8],
         "DLP_Secondary_Feedback_1_Button_1_ID": [11],
@@ -4631,6 +4685,12 @@ function One() {
                 isBusySwitchingPages = false;
                 return;
             }
+        } else if (toNumber === 13) {
+            if (storageSession.script.donate === false) {
+                showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
+                isBusySwitchingPages = false;
+                return;
+            }
         }
 
         if (buttonID === 'DLP_Main_Terms_1_Button_1_ID' || buttonID === 'DLP_Secondary_Terms_1_Button_1_ID') {
@@ -4684,20 +4744,17 @@ function One() {
         } else if (toNumber === 7) {
             const trackingSinceDateString = new Date(storageLocal.stats.tracking_since).toLocaleDateString(systemLanguage, { month: 'short', day: 'numeric', year: 'numeric' });
 
-            let modernStatsBox = document.querySelector('#DLP_Main_Box_Divider_7_ID').querySelector('#DLP_Settings_Modern_Stats_Main_Box_1_ID');
-            modernStatsBox.children[0].lastElementChild.innerHTML = systemFormat("stats.since", { date: trackingSinceDateString });
-            modernStatsBox.children[1].lastElementChild.innerHTML = storageLocal.stats.modern.xp;
-            modernStatsBox.children[2].lastElementChild.innerHTML = storageLocal.stats.modern.gem;
-            modernStatsBox.children[3].lastElementChild.innerHTML = storageLocal.stats.modern.streak;
-            modernStatsBox.children[4].lastElementChild.innerHTML = storageLocal.stats.modern.heart_refill;
-            modernStatsBox.children[5].lastElementChild.innerHTML = storageLocal.stats.modern.streak_freeze;
-            modernStatsBox.children[6].lastElementChild.innerHTML = storageLocal.stats.modern.double_xp_boost;
-            modernStatsBox.children[7].lastElementChild.innerHTML = storageLocal.stats.modern.quest;
-
-            let legacyStatsBox = document.querySelector('#DLP_Main_Box_Divider_7_ID').querySelector('#DLP_Settings_Legacy_Stats_Main_Box_1_ID');
-            legacyStatsBox.children[0].lastElementChild.innerHTML = systemFormat("stats.since", { date: trackingSinceDateString });
-            legacyStatsBox.children[1].lastElementChild.innerHTML = (storageLocal.stats.legacy.listen.lessons + storageLocal.stats.legacy.path.lessons + storageLocal.stats.legacy.practice.lessons + storageLocal.stats.legacy.lesson.lessons);
-            legacyStatsBox.children[2].lastElementChild.innerHTML = (storageLocal.stats.legacy.listen.questions + storageLocal.stats.legacy.path.questions + storageLocal.stats.legacy.practice.questions + storageLocal.stats.legacy.lesson.questions);
+            document.getElementById('DLP_Settings_Modern_Stats_Since_1_ID').textContent = systemFormat("stats.since", { date: trackingSinceDateString });
+            document.getElementById('DLP_Settings_Modern_Stats_XP_1_ID').textContent = storageLocal.stats.modern.xp;
+            document.getElementById('DLP_Settings_Modern_Stats_Gems_1_ID').textContent = storageLocal.stats.modern.gem;
+            document.getElementById('DLP_Settings_Modern_Stats_Streak_1_ID').textContent = storageLocal.stats.modern.streak;
+            document.getElementById('DLP_Settings_Modern_Stats_Hearts_1_ID').textContent = storageLocal.stats.modern.heart_refill;
+            document.getElementById('DLP_Settings_Modern_Stats_Freezes_1_ID').textContent = storageLocal.stats.modern.streak_freeze;
+            document.getElementById('DLP_Settings_Modern_Stats_Boosts_1_ID').textContent = storageLocal.stats.modern.double_xp_boost;
+            document.getElementById('DLP_Settings_Modern_Stats_Quests_1_ID').textContent = storageLocal.stats.modern.quest;
+            document.getElementById('DLP_Settings_Legacy_Stats_Since_1_ID').textContent = systemFormat("stats.since", { date: trackingSinceDateString });
+            document.getElementById('DLP_Settings_Legacy_Stats_Lessons_1_ID').textContent = storageLocal.stats.legacy.listen.lessons + storageLocal.stats.legacy.path.lessons + storageLocal.stats.legacy.practice.lessons + storageLocal.stats.legacy.lesson.lessons;
+            document.getElementById('DLP_Settings_Legacy_Stats_Questions_1_ID').textContent = storageLocal.stats.legacy.listen.questions + storageLocal.stats.legacy.path.questions + storageLocal.stats.legacy.practice.questions + storageLocal.stats.legacy.lesson.questions;
 
             if (buttonID.startsWith("DLP_Get_Local_Duolingo_Max")) {
                 setTimeout(() => {
@@ -4825,50 +4882,46 @@ function One() {
             });
         });
     });
+    let isBusyHiding = false;
+    let legacyButtonVisibilityTimer = null;
+    let legacyButtonVisibleForPage = true;
     document.getElementById('DLP_Hide_Button_1_ID').addEventListener("click", function () {
-        if (isBusySwitchingPages) return;
-        hidden = !hidden;
-        hide(hidden);
+        hide(!hidden);
     });
     function hide(value) {
-        if (isBusySwitchingPages) return;
-        isBusySwitchingPages = true;
-        let button = document.querySelector(`#DLP_Hide_Button_1_ID`);
-        let main = document.querySelector(`.DLP_Main`);
-        let mainBox = document.querySelector(`.DLP_Main_Box`);
+        if (isBusyHiding) return;
+        isBusyHiding = true;
+        const main = document.querySelector('.DLP_Main');
+        const content = document.querySelector('.DLP_Main_Content');
+        const button = document.getElementById('DLP_Hide_Button_1_ID');
 
-        let mainBoxHeight = mainBox.offsetHeight;
+        // Hiding is independent of page navigation and never snapshots panel dimensions.
+        hidden = Boolean(value);
+        main.classList.toggle('DLP_Main_Hidden', hidden);
+        if (hidden && content.contains(document.activeElement)) {
+            button.focus({ preventScroll: true });
+        }
+        content.inert = hidden;
+        content.setAttribute('aria-hidden', String(hidden));
+        button.setAttribute('aria-expanded', String(!hidden));
 
-        main.style.transition = "bottom 0.8s cubic-bezier(0.16, 1, 0.32, 1)";
-        mainBox.style.transition = "width 0.8s cubic-bezier(0.16, 1, 0.32, 1), height 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.8s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1)";
-        if (value) {
+        if (hidden) {
             setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("solver.show"), icon: '􀋮' }, { text: '', icon: '' });
-            main.style.bottom = `-${mainBoxHeight - 8}px`;
-            legacyButtonVisibility(false);
-            mainBox.style.filter = "blur(8px)";
-            mainBox.style.opacity = "0";
         } else {
             setButtonState(button, { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("solver.hide"), icon: '􀋰' }, { text: '', icon: '' });
-            main.style.bottom = "16px";
-            if ([1, 3].includes(pageHistory[pageHistory.length - 1])) legacyButtonVisibility(true);
-            mainBox.style.filter = "";
-            mainBox.style.opacity = "";
         }
-        storageSession.hidden = value;
+        legacyButtonVisibility(legacyButtonVisibleForPage);
+
+        storageSession.hidden = hidden;
         saveStorageSession();
         setTimeout(() => {
-            main.style.transition = "";
-            mainBox.style.transition = "";
-            isBusySwitchingPages = false;
+            isBusyHiding = false;
         }, 800);
     }
-    document.querySelector(`.DLP_Main`).style.bottom = `-${document.querySelector(`.DLP_Main_Box`).offsetHeight - 8}px`;
-    document.querySelector(`.DLP_Main_Box`).style.opacity = "0";
-    document.querySelector(`.DLP_Main_Box`).style.filter = "blur(8px)";
-    document.querySelector(`#DLP_Switch_Legacy_Button_1_ID`).style.filter = "blur(8px)";
-    document.querySelector(`#DLP_Switch_Legacy_Button_1_ID`).style.opacity = "0";
-    document.querySelector(`#DLP_Switch_Legacy_Button_1_ID`).style.display = "none";
     function legacyButtonVisibility(value) {
+        clearTimeout(legacyButtonVisibilityTimer);
+        legacyButtonVisibleForPage = Boolean(value);
+        value = value && !hidden;
         let legacyButton = document.querySelector(`#DLP_Switch_Legacy_Button_1_ID`);
         legacyButton.style.transition = 'width 0.8s cubic-bezier(0.77,0,0.18,1), opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.8s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1)';
         if (value) {
@@ -4880,7 +4933,7 @@ function One() {
         } else {
             legacyButton.style.filter = "blur(8px)";
             legacyButton.style.opacity = "0";
-            setTimeout(() => {
+            legacyButtonVisibilityTimer = setTimeout(() => {
                 legacyButton.style.display = "none";
             }, 800);
         }
@@ -4901,6 +4954,7 @@ function One() {
             document.querySelector('.DLP_Main').style.display = '';
         }
     }
+    handleVisibility();
     setInterval(handleVisibility, 200);
 
     let isGetButtonsBusy = false;
@@ -5046,8 +5100,7 @@ function One() {
     [
         ['#DLP_Main_YouTube_Button_1_ID, #DLP_Secondary_YouTube_Button_1_ID', 'youtube'],
         ['#DLP_Main_Discord_Button_1_ID, #DLP_Secondary_Discord_Button_1_ID', 'discord'],
-        ['#DLP_Main_GitHub_Button_1_ID, #DLP_Secondary_GitHub_Button_1_ID', 'github'],
-        ['#DLP_Main_Donate_Button_1_ID, #DLP_Secondary_Donate_Button_1_ID', 'donate']
+        ['#DLP_Main_GitHub_Button_1_ID, #DLP_Secondary_GitHub_Button_1_ID', 'github']
     ].forEach(([selectors, key]) => document.querySelectorAll(selectors).forEach(btn => btn.addEventListener('click', () => {
         if (storageSession.script[key] === false) {
             showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
@@ -5689,8 +5742,7 @@ function One() {
         });
     }
     inputCheck1();
-    hidden = storageSession.hidden;
-    hide(hidden);
+    hide(storageSession.hidden);
 
 
     function initializeMagneticHover(element) {
@@ -8886,6 +8938,47 @@ function One() {
     getButtonsList1.forEach(({ base, type, input }) => setupGetButtons(base, type, input));
 
 
+
+    function normalizeRandomSolveSpeedDistribution(value) {
+        const peak = Number(value?.peak);
+        const flatness = Number(value?.flatness);
+        return {
+            peak: Number.isFinite(peak) ? Math.max(0, Math.min(1, peak)) : 0.5,
+            flatness: Number.isFinite(flatness) ? Math.max(0, Math.min(1, flatness)) : 0
+        };
+    }
+
+    function getRandomSolveSpeedWeights(distribution) {
+        const { peak, flatness } = normalizeRandomSolveSpeedDistribution(distribution);
+        const curve = Array.from({ length: 16 }, (_, index) => {
+            const position = index / (16 - 1);
+            return Math.exp(-0.5 * ((position - peak) / 0.24) ** 2);
+        });
+        const lowest = Math.min(...curve);
+        const spread = Math.max(...curve) - lowest;
+        return curve.map(value => Math.round(16 + 48 * (flatness + (1 - flatness) * (spread ? (value - lowest) / spread : 1))));
+    }
+
+    function chooseWeightedRandomSolveSpeed(range, distribution) {
+        const minimum = Number(range?.[0]);
+        const maximum = Number(range?.[1]);
+        if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) return 0.4;
+        const lower = Math.min(minimum, maximum);
+        const upper = Math.max(minimum, maximum);
+        const weights = getRandomSolveSpeedWeights(distribution);
+        const total = weights.reduce((sum, weight) => sum + weight, 0);
+        const draw = (crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000) * total;
+        let cumulative = 0;
+        for (let index = 0; index < weights.length; index++) {
+            const next = cumulative + weights[index];
+            if (draw < next || index === weights.length - 1) {
+                const position = (index + (draw - cumulative) / weights[index]) / weights.length;
+                return lower + position * (upper - lower);
+            }
+            cumulative = next;
+        }
+    }
+
     let DLP_Settings_Save_Button_1_ID = document.getElementById("DLP_Settings_Save_Button_1_ID");
     DLP_Settings_Save_Button_1_ID.addEventListener('click', () => {
         if (isBusySwitchingPages) return;
@@ -8899,6 +8992,10 @@ function One() {
         storageLocal.settings.showSuper = DLP_Settings_Var.showSuper;
         storageLocal.settings.randomSolveSpeed = DLP_Settings_Var.randomSolveSpeed;
         storageLocal.settings.randomSolveSpeedRange = settingsLegacySolveSpeedInputSanitizeValue(DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID').value, DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID').value);
+        storageLocal.settings.randomSolveSpeedDistribution = normalizeRandomSolveSpeedDistribution(DLP_Settings_Var.randomSolveSpeedDistribution);
+        storageLocal.settings.smartPvpPause = DLP_Settings_Var.smartPvpPause;
+        storageLocal.settings.smartPracticePause = DLP_Settings_Var.smartPracticePause;
+        storageLocal.settings.pauseSpeed = DLP_Settings_Var.pauseSpeed;
         saveStorageLocal();
         setButtonState(DLP_Settings_Save_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-green), 0.10) 0%, rgba(var(--DLP-green), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-green), 0.20)', text: 'rgb(var(--DLP-green))', icon: 'rgb(var(--DLP-green))' }, { text: system("settings.savingAndApplying"), icon: '' }, { text: '', icon: ' ' }, () => {
             setTimeout(() => {
@@ -8918,16 +9015,152 @@ function One() {
         showSolveButtons: storageLocal.settings.showSolveButtons,
         randomSolveSpeed: storageLocal.settings.randomSolveSpeed,
         randomSolveSpeedRange: storageLocal.settings.randomSolveSpeedRange,
+        randomSolveSpeedDistribution: normalizeRandomSolveSpeedDistribution(storageLocal.settings.randomSolveSpeedDistribution),
+        smartPvpPause: storageLocal.settings.smartPvpPause,
+        smartPracticePause: storageLocal.settings.smartPracticePause,
+        pauseSpeed: storageLocal.settings.pauseSpeed,
         anonymousUsageData: storageLocal.settings.anonymousUsageData,
         reduceEffects: storageLocal.settings.reduceEffects,
         localSuper: storageLocal.settings.localSuper,
         showSuper: storageLocal.settings.showSuper,
     };
     let DLP_Settings_Toggle_Busy = false;
+    const DLP_Settings_Pause_Speed_Input_1_ID = document.getElementById('DLP_Settings_Pause_Speed_Input_1_ID');
+    const pauseSpeedLabels = DLP_Settings_Pause_Speed_Input_1_ID.nextElementSibling.children;
+    const pauseSpeedResetButton = document.getElementById('DLP_Settings_Pause_Speed_Reset_1_ID');
+    function setPauseSpeed(value) {
+        const speed = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+        DLP_Settings_Var.pauseSpeed = speed;
+        DLP_Settings_Pause_Speed_Input_1_ID.setAttribute('aria-valuenow', String(speed));
+        DLP_Settings_Pause_Speed_Input_1_ID.firstElementChild.style.left = `calc(${speed}% + ${16 - speed * 0.32}px)`;
+        Array.from(pauseSpeedLabels).forEach((label, index) => {
+            label.style.color = `rgb(var(--color-wolf), ${index === Math.round(speed / 50) ? '0.8' : '0.4'})`;
+        });
+        pauseSpeedResetButton.style.opacity = speed === 50 ? '0.5' : '';
+        pauseSpeedResetButton.style.pointerEvents = speed === 50 ? 'none' : '';
+        pauseSpeedResetButton.disabled = speed === 50;
+    }
+    function setPauseSpeedFromPointer(event) {
+        const rect = DLP_Settings_Pause_Speed_Input_1_ID.getBoundingClientRect();
+        if (rect.width <= 32) return;
+        setPauseSpeed(((event.clientX - rect.left - 16) / (rect.width - 32)) * 100);
+    }
+    setPauseSpeed(DLP_Settings_Var.pauseSpeed ?? 50);
+    pauseSpeedResetButton.addEventListener('click', () => setPauseSpeed(50));
+    DLP_Settings_Pause_Speed_Input_1_ID.addEventListener('pointerdown', event => {
+        DLP_Settings_Pause_Speed_Input_1_ID.setPointerCapture(event.pointerId);
+        setPauseSpeedFromPointer(event);
+    });
+    DLP_Settings_Pause_Speed_Input_1_ID.addEventListener('pointermove', event => {
+        if (DLP_Settings_Pause_Speed_Input_1_ID.hasPointerCapture(event.pointerId)) setPauseSpeedFromPointer(event);
+    });
+    DLP_Settings_Pause_Speed_Input_1_ID.addEventListener('pointerup', event => {
+        if (DLP_Settings_Pause_Speed_Input_1_ID.hasPointerCapture(event.pointerId)) DLP_Settings_Pause_Speed_Input_1_ID.releasePointerCapture(event.pointerId);
+    });
+    DLP_Settings_Pause_Speed_Input_1_ID.addEventListener('keydown', event => {
+        const step = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10 }[event.key];
+        if (step === undefined && event.key !== 'Home' && event.key !== 'End') return;
+        event.preventDefault();
+        setPauseSpeed(event.key === 'Home' ? 0 : event.key === 'End' ? 100 : DLP_Settings_Var.pauseSpeed + step);
+    });
+    function syncSmartPauseDependentVisibility() {
+        const display = DLP_Settings_Var.smartPvpPause ? '' : 'none';
+        document.getElementById('DLP_Settings_Pause_Speed_1_ID').style.display = display;
+        document.getElementById('DLP_Settings_Smart_Practice_Pause_1_ID').style.display = display;
+    }
+    syncSmartPauseDependentVisibility();
+    document.getElementById('DLP_Settings_Restore_Defaults_1_ID').addEventListener('click', () => {
+        if (!window.confirm('Restore all Duolingo PRO settings to their defaults?')) return;
+        Object.assign(storageLocal.settings, {
+            autoUpdate: !greasyfork, showSolveButtons: true, showAutoServerButton: alpha,
+            muteLessons: false, anonymousUsageData: alpha, reduceEffects: false,
+            localSuper: false, randomSolveSpeed: false, randomSolveSpeedRange: [2.8, 12.4],
+            randomSolveSpeedDistribution: { peak: 0.5, flatness: 0 },
+            showSuper: false, smartPvpPause: true, smartPracticePause: false, pauseSpeed: 50
+        });
+        saveStorageLocal();
+        location.reload();
+    });
+    document.getElementById('DLP_Settings_Reset_Pro_1_ID').addEventListener('click', () => {
+        if (!window.confirm('Reset Duolingo PRO? This removes saved settings, statistics and local script data.')) return;
+        localStorage.removeItem('DLP_Local_Storage');
+        sessionStorage.removeItem('DLP_Session_Storage');
+        location.reload();
+    });
 
     let DLP_Settings_Legacy_Solve_Speed_1_ID = document.getElementById("DLP_Settings_Legacy_Solve_Speed_1_ID");
-    DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID').value = DLP_Settings_Var.randomSolveSpeedRange[0];
-    DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID').value = DLP_Settings_Var.randomSolveSpeedRange[1];
+    const rangeMinimumInput = DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID');
+    const rangeMaximumInput = DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID');
+    const rangeResetButton = document.getElementById('DLP_Settings_Range_Reset_1_ID');
+    rangeMinimumInput.value = DLP_Settings_Var.randomSolveSpeedRange[0];
+    rangeMaximumInput.value = DLP_Settings_Var.randomSolveSpeedRange[1];
+    function syncRangeResetButton() {
+        const distribution = normalizeRandomSolveSpeedDistribution(DLP_Settings_Var.randomSolveSpeedDistribution);
+        const atDefault = Number(rangeMinimumInput.value.replace(',', '.')) === 2.8 &&
+            Number(rangeMaximumInput.value.replace(',', '.')) === 12.4 &&
+            distribution.peak === 0.5 && distribution.flatness === 0;
+        rangeResetButton.style.opacity = atDefault ? '0.5' : '';
+        rangeResetButton.style.pointerEvents = atDefault ? 'none' : '';
+        rangeResetButton.disabled = atDefault;
+    }
+    const randomSolveDistributionGraph = document.getElementById('DLP_Settings_Random_Solve_Distribution_Graph_1_ID');
+    const randomSolveDistributionKnob = document.getElementById('DLP_Settings_Random_Solve_Distribution_Knob_1_ID');
+    const randomSolveDistributionBars = randomSolveDistributionGraph.querySelectorAll('[data-dlp-distribution-bar]');
+    function renderRandomSolveDistribution() {
+        const distribution = normalizeRandomSolveSpeedDistribution(DLP_Settings_Var.randomSolveSpeedDistribution);
+        DLP_Settings_Var.randomSolveSpeedDistribution = distribution;
+        getRandomSolveSpeedWeights(distribution).forEach((height, index) => {
+            randomSolveDistributionBars[index].style.height = `${height}px`;
+        });
+        randomSolveDistributionKnob.style.left = `calc(${distribution.peak * 100}% + 12px - ${distribution.peak * 24}px)`;
+        randomSolveDistributionKnob.style.top = `${(1 - distribution.flatness) * 40}px`;
+        randomSolveDistributionKnob.setAttribute('aria-label', `AutoSolve delay distribution: peak ${Math.round(distribution.peak * 100)} percent, flatness ${Math.round(distribution.flatness * 100)} percent`);
+        syncRangeResetButton();
+    }
+    function updateRandomSolveDistributionFromPointer(event) {
+        const rect = randomSolveDistributionGraph.getBoundingClientRect();
+        if (rect.width <= 24) return;
+        DLP_Settings_Var.randomSolveSpeedDistribution = {
+            peak: (event.clientX - rect.left - 12) / (rect.width - 24),
+            flatness: (rect.bottom - 12 - event.clientY) / 40
+        };
+        renderRandomSolveDistribution();
+    }
+    renderRandomSolveDistribution();
+    randomSolveDistributionKnob.addEventListener('pointerdown', event => {
+        if (storageSession.script.settings.custom_random_legacy_solve_speed === false) {
+            showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
+            return;
+        }
+        event.preventDefault();
+        randomSolveDistributionKnob.setPointerCapture(event.pointerId);
+        randomSolveDistributionKnob.style.cursor = 'grabbing';
+        updateRandomSolveDistributionFromPointer(event);
+    });
+    randomSolveDistributionKnob.addEventListener('pointermove', event => {
+        if (randomSolveDistributionKnob.hasPointerCapture(event.pointerId)) updateRandomSolveDistributionFromPointer(event);
+    });
+    function finishRandomSolveDistributionDrag(event) {
+        if (randomSolveDistributionKnob.hasPointerCapture(event.pointerId)) randomSolveDistributionKnob.releasePointerCapture(event.pointerId);
+        randomSolveDistributionKnob.style.cursor = 'grab';
+    }
+    randomSolveDistributionKnob.addEventListener('pointerup', finishRandomSolveDistributionDrag);
+    randomSolveDistributionKnob.addEventListener('pointercancel', finishRandomSolveDistributionDrag);
+    randomSolveDistributionKnob.addEventListener('keydown', event => {
+        if (storageSession.script.settings.custom_random_legacy_solve_speed === false) return;
+        const direction = { ArrowLeft: ['peak', -0.05], ArrowRight: ['peak', 0.05], ArrowUp: ['flatness', 0.05], ArrowDown: ['flatness', -0.05] }[event.key];
+        if (!direction) return;
+        event.preventDefault();
+        DLP_Settings_Var.randomSolveSpeedDistribution[direction[0]] += direction[1];
+        renderRandomSolveDistribution();
+    });
+    rangeResetButton.addEventListener('click', () => {
+        DLP_Settings_Var.randomSolveSpeedRange = [2.8, 12.4];
+        DLP_Settings_Var.randomSolveSpeedDistribution = { peak: 0.5, flatness: 0 };
+        rangeMinimumInput.value = '2.8';
+        rangeMaximumInput.value = '12.4';
+        renderRandomSolveDistribution();
+    });
     if (DLP_Settings_Var.randomSolveSpeed) DLP_Settings_Legacy_Solve_Speed_1_ID.style.display = '';
     else DLP_Settings_Legacy_Solve_Speed_1_ID.style.display = 'none';
 
@@ -8960,6 +9193,7 @@ function One() {
 
             // ensure only one decimal digit live (already enforced above)
             e.target.value = v;
+            syncRangeResetButton();
         });
 
         el.addEventListener('blur', e => {
@@ -8975,18 +9209,23 @@ function One() {
 
             // allow only up to one decimal
             e.target.value = n.toFixed(1);
+            syncRangeResetButton();
         });
     }
-    solveSpeedInputSanitizeListener(DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID'));
-    solveSpeedInputSanitizeListener(DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID'));
+    solveSpeedInputSanitizeListener(rangeMinimumInput);
+    solveSpeedInputSanitizeListener(rangeMaximumInput);
 
     DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID').addEventListener('focus', e => {
-        if (storageSession.script.settings.custom_random_legacy_solve_speed === false) e.target.blur();
-        showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
+        if (storageSession.script.settings.custom_random_legacy_solve_speed === false) {
+            e.target.blur();
+            showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
+        }
     });
     DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID').addEventListener('focus', e => {
-        if (storageSession.script.settings.custom_random_legacy_solve_speed === false) e.target.blur();
-        showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
+        if (storageSession.script.settings.custom_random_legacy_solve_speed === false) {
+            e.target.blur();
+            showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
+        }
     });
 
     function settingsLegacySolveSpeedInputSanitizeValue(value1, value2) {
@@ -9036,6 +9275,14 @@ function One() {
                 setState: (v) => { DLP_Settings_Var.randomSolveSpeed = v; },
                 customEvent: () => 'randomSolveSpeed'
             }
+        ],
+        [
+            document.getElementById('DLP_Settings_Smart_Pvp_Pause_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'),
+            { getState: () => DLP_Settings_Var.smartPvpPause, setState: v => { DLP_Settings_Var.smartPvpPause = v; syncSmartPauseDependentVisibility(); } }
+        ],
+        [
+            document.getElementById('DLP_Settings_Smart_Practice_Pause_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'),
+            { getState: () => DLP_Settings_Var.smartPracticePause, setState: v => { DLP_Settings_Var.smartPracticePause = v; } }
         ],
         [
             document.getElementById('DLP_Main_Box_Divider_7_ID').querySelector("#DLP_Settings_Show_AutoServer_Button_1_ID").querySelector('#DLP_Inset_Toggle_1_ID'),
@@ -10261,18 +10508,17 @@ function One() {
 
 
 
-    
+
+
     const CHESS_MATCH_BOT_CONFIG = {
-        clickDelayMs: 200,
-        promotionDelayMs: 500,
-        postPromotionDelayMs: 4000,
         loopDelayMs: 2000,
         movePollDelayMs: 200,
+        moveStateTimeoutMs: 10000,
         buttonCheckIntervalMs: 1000,
         toggleButtonId: 'auto-chess-toggle-btn',
         toggleContainerSelector: 'div._3KDWp',
         chessCanvasSelector: 'canvas._3Lbq0',
-        chessPathSuffix: '/chess-match'
+        chessPathSuffixes: ['/chess-match', '/chess-matches', '/chess-pvp-session']
     };
 
     let chessMatchBotPlaying = false;
@@ -10280,6 +10526,218 @@ function One() {
     let chessMatchBotButtonIntervalId = null;
     let chessMatchBotLastMove = null;
     let chessMatchBotLastObservedMoveKey = null;
+    let chessMatchEngine = null;
+    let chessMatchEngineStartPromise = null;
+
+    const CHESS_MATCH_ENGINE_DEPTH = 12;
+    const CHESS_MATCH_ENGINE_TIME = 500;
+    let chessPvpKairosPromise = null;
+
+    // Stockfish 18's ASM-JS build runs in a dedicated local worker. Loading it
+    // lazily prevents its ~10 MB payload from delaying non-chess pages.
+    const STOCKFISH_18_ASM_URL = 'https://unpkg.com/stockfish@18.0.8/bin/stockfish-18-asm.js';
+
+    const DLPChessMatchStockfish = (() => {
+        async function createEngine({ hash = 16 } = {}) {
+            if (typeof Worker !== 'function') {
+                throw new Error('Stockfish 18 ASM requires Web Worker support.');
+            }
+
+            const workerBootstrap = `importScripts(${JSON.stringify(STOCKFISH_18_ASM_URL)});`;
+            const workerObjectURL = URL.createObjectURL(new Blob([workerBootstrap], { type: 'text/javascript' }));
+            const worker = new Worker(workerObjectURL);
+            let destroyed = false;
+            let readyResolve;
+            let readyReject;
+            let readySettled = false;
+            let activeRequest = null;
+            const ready = new Promise((resolve, reject) => {
+                readyResolve = resolve;
+                readyReject = reject;
+            });
+
+            worker.onmessage = (event) => {
+                const line = typeof event.data === 'string' ? event.data.trim() : '';
+                if (line === 'readyok') {
+                    readySettled = true;
+                    readyResolve();
+                    return;
+                }
+
+                if (!activeRequest || !line.startsWith('bestmove ')) {
+                    return;
+                }
+
+                const request = activeRequest;
+                activeRequest = null;
+                const bestMove = line.split(/\s+/)[1];
+                request.resolve(bestMove && bestMove.toLowerCase() !== 'null' ? bestMove : null);
+            };
+
+            worker.onerror = (event) => {
+                const error = new Error(event.message || 'Stockfish 18 ASM worker crashed.');
+                if (!readySettled) readyReject(error);
+                if (activeRequest) {
+                    activeRequest.reject(error);
+                    activeRequest = null;
+                }
+            };
+
+            // Keep this UCI session alive between searches so Stockfish can reuse its
+            // transposition table instead of rebuilding it for every move.
+            worker.postMessage(`setoption name Hash value ${hash}`);
+            worker.postMessage('setoption name MultiPV value 1');
+            worker.postMessage('ucinewgame');
+            worker.postMessage('isready');
+
+            return {
+                ready,
+                getBestMove({ fen, moves = [], depth = 8, time = 0 } = {}) {
+                    if (destroyed) {
+                        return Promise.reject(new Error('Stockfish 18 ASM engine has been destroyed.'));
+                    }
+
+                    return ready.then(() => new Promise((resolve, reject) => {
+                        if (activeRequest) {
+                            reject(new Error('Stockfish 18 ASM worker is already searching.'));
+                            return;
+                        }
+
+                        activeRequest = { resolve, reject };
+                        let position = `position fen ${fen}`;
+                        if (Array.isArray(moves) && moves.length > 0) {
+                            position += ` moves ${moves.join(' ')}`;
+                        }
+                        worker.postMessage(position);
+                        const goCommand = [`go depth ${depth}`, time > 0 ? `movetime ${time}` : '']
+                            .filter(Boolean)
+                            .join(' ');
+                        worker.postMessage(goCommand);
+                    }));
+                },
+                stop() {
+                    worker.postMessage('stop');
+                },
+                destroy() {
+                    destroyed = true;
+                    if (activeRequest) {
+                        activeRequest.reject(new Error('Stockfish 18 ASM engine has been destroyed.'));
+                        activeRequest = null;
+                    }
+                    worker.terminate();
+                    URL.revokeObjectURL(workerObjectURL);
+                }
+            };
+        }
+
+        return { createEngine };
+    })();
+
+    const DLPKairos = (() => {
+        const pieceCodes = new Map([...'.PNBRQKpnbrqk'].map((piece, index) => [piece, index]));
+        const nullMoveId = 20480;
+
+        function softplus(value) {
+            return Math.max(value, 0) + Math.log1p(Math.exp(-Math.abs(value)));
+        }
+
+        function parseFen(fen) {
+            const fields = fen.trim().split(/\s+/);
+            if (fields.length < 6) throw new Error('FEN must contain all six fields.');
+
+            const board = [];
+            for (const character of fields[0]) {
+                if (character === '/') continue;
+                if (/^[1-8]$/.test(character)) {
+                    for (let index = 0; index < Number(character); index++) board.push(0);
+                } else if (pieceCodes.has(character)) {
+                    board.push(pieceCodes.get(character));
+                } else {
+                    throw new Error(`Invalid FEN board character: ${character}`);
+                }
+            }
+            if (board.length !== 64) throw new Error(`FEN board has ${board.length} squares, expected 64.`);
+
+            return {
+                board,
+                whiteToMove: fields[1] === 'w',
+                castling: fields[2],
+                fullmove: Number(fields[5])
+            };
+        }
+
+        function squareId(square) {
+            if (!/^[a-h][1-8]$/.test(square)) throw new Error(`Invalid UCI square: ${square}`);
+            return (Number(square[1]) - 1) * 8 + square.charCodeAt(0) - 97;
+        }
+
+        function moveId(uci) {
+            if (uci == null || uci === '') return nullMoveId;
+            if (!/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(uci)) throw new Error(`Invalid UCI move: ${uci}`);
+
+            const promotion = { n: 1, b: 2, r: 3, q: 4 }[uci[4]] || 0;
+            return promotion * 4096 + squareId(uci.slice(0, 2)) * 64 + squareId(uci.slice(2, 4));
+        }
+
+        function scalarFeatures(record, fen) {
+            const ply = 2 * (fen.fullmove - 1) + (fen.whiteToMove ? 0 : 1);
+            const castlingCount = fen.castling === '-' ? 0 : fen.castling.length;
+            return [
+                (record.elo - 1800) / 500,
+                (record.opponent_elo - 1800) / 500,
+                (record.elo - record.opponent_elo) / 400,
+                record.time_left / 1200,
+                Math.log1p(Math.max(record.time_left, 0)) / Math.log1p(1200),
+                Math.min(ply, 160) / 160,
+                fen.whiteToMove ? 1 : 0,
+                castlingCount / 4
+            ];
+        }
+
+        function dotLayer(input, weights, bias, outputSize, relu = true) {
+            const output = new Array(outputSize);
+            for (let outputIndex = 0; outputIndex < outputSize; outputIndex++) {
+                let value = bias[outputIndex];
+                for (let inputIndex = 0; inputIndex < input.length; inputIndex++) {
+                    value += input[inputIndex] * weights[inputIndex * outputSize + outputIndex];
+                }
+                output[outputIndex] = relu ? Math.max(value, 0) : value;
+            }
+            return output;
+        }
+
+        function predictThinkTime(record, model) {
+            const fen = parseFen(record.fen_before_move);
+            const weights = model.weights;
+            const input = [];
+
+            for (let position = 0; position < 64; position++) {
+                const row = (position * 13 + fen.board[position]) * 4;
+                for (let index = 0; index < 4; index++) input.push(weights.board_embedding[row + index]);
+            }
+            for (const move of [moveId(record.previous_move), moveId(record.opponent_move)]) {
+                const row = move * 8;
+                for (let index = 0; index < 8; index++) input.push(weights.move_embedding[row + index]);
+            }
+            input.push(...scalarFeatures(record, fen));
+
+            const hiddenLayerOne = dotLayer(input, weights.w1, weights.b1, 128);
+            const hiddenLayerTwo = dotLayer(hiddenLayerOne, weights.w2, weights.b2, 64);
+            const raw = dotLayer(hiddenLayerTwo, weights.w3, weights.b3, 5, false);
+            const values = [];
+            let cumulativeLog = 0;
+            for (let index = 0; index < raw.length; index++) {
+                cumulativeLog += softplus(raw[index]);
+                const calibrated = cumulativeLog + model.calibration_offsets_log[index];
+                values.push(index === 0 ? calibrated : Math.max(calibrated, values[index - 1]));
+            }
+
+            const seconds = values.map(value => Math.min(Math.max(Math.expm1(value), 0), record.time_left));
+            return { p10: seconds[0], p25: seconds[1], p50: seconds[2], p75: seconds[3], p90: seconds[4] };
+        }
+
+        return { predictThinkTime };
+    })();
 
     function chessMatchDebugLog(...args) {
         if (debug) {
@@ -10293,7 +10751,11 @@ function One() {
     }
 
     function isChessMatchPageActive() {
-        return window.location.pathname.endsWith(CHESS_MATCH_BOT_CONFIG.chessPathSuffix)
+        const pathname = window.location.pathname.replace(/\/+$/, '');
+        const isChessMatchPath = CHESS_MATCH_BOT_CONFIG.chessPathSuffixes.some(
+            suffix => pathname.endsWith(suffix)
+        );
+        return isChessMatchPath
             && !!document.querySelector(CHESS_MATCH_BOT_CONFIG.toggleContainerSelector);
     }
 
@@ -10397,7 +10859,7 @@ function One() {
         }, CHESS_MATCH_BOT_CONFIG.buttonCheckIntervalMs);
     }
 
-    function getChessMatchCanvasAndState() {
+    function getChessCanvasAndState() {
         const canvas = document.querySelector(CHESS_MATCH_BOT_CONFIG.chessCanvasSelector);
         if (!canvas) return { canvas: null, reactState: null };
 
@@ -10405,96 +10867,6 @@ function One() {
             canvas,
             reactState: findReact(canvas, 1, true)
         };
-    }
-
-    function getDynamicCSSBounds(canvas) {
-        const { width, height } = canvas;
-
-        // Downsample to a small fixed-size canvas before reading pixel data.
-        // This lets the GPU do the scaling natively, dramatically reducing the amount
-        // of data copied from GPU→CPU and the number of JS loop iterations.
-        // At 128×128 on the smallest known canvas (280×280, 23px margins), the margin
-        // is still ~10 sample pixels wide — well above the detection threshold.
-        const SAMPLE_SIZE = 128;
-        const tmpCanvas = document.createElement('canvas');
-        tmpCanvas.width = SAMPLE_SIZE;
-        tmpCanvas.height = SAMPLE_SIZE;
-        const tmpCtx = tmpCanvas.getContext('2d', { willReadFrequently: true });
-        tmpCtx.drawImage(canvas, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
-        const data = tmpCtx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
-
-        // Average all 4 corners for a noise-resistant background reference.
-        // Brave's canvas fingerprinting protection applies independent per-pixel noise
-        // to getImageData output; averaging corners makes the reference stable despite it.
-        // The drawImage downsampling step also averages many source pixels per sample,
-        // further dampening any noise carried over from the source canvas.
-        const sLast = SAMPLE_SIZE - 1;
-        const cornerOffsets = [
-            0,
-            sLast * 4,
-            sLast * SAMPLE_SIZE * 4,
-            (sLast * SAMPLE_SIZE + sLast) * 4
-        ];
-        let sumR = 0, sumG = 0, sumB = 0, sumA = 0;
-        for (const o of cornerOffsets) {
-            sumR += data[o]; sumG += data[o + 1]; sumB += data[o + 2]; sumA += data[o + 3];
-        }
-        const bgR = sumR / 4;
-        const bgG = sumG / 4;
-        const bgB = sumB / 4;
-        const bgA = sumA / 4;
-
-        // Tolerance of 10 per channel: above Brave's noise ceiling (~2) and well below
-        // the color difference between the canvas background and board squares (~15+).
-        const BG_TOLERANCE = 10;
-
-        let minX = SAMPLE_SIZE;
-        let minY = SAMPLE_SIZE;
-        let maxX = -1;
-        let maxY = -1;
-
-        for (let y = 0; y < SAMPLE_SIZE; y++) {
-            for (let x = 0; x < SAMPLE_SIZE; x++) {
-                const i = (y * SAMPLE_SIZE + x) * 4;
-                if (
-                    Math.abs(data[i]     - bgR) > BG_TOLERANCE ||
-                    Math.abs(data[i + 1] - bgG) > BG_TOLERANCE ||
-                    Math.abs(data[i + 2] - bgB) > BG_TOLERANCE ||
-                    Math.abs(data[i + 3] - bgA) > BG_TOLERANCE
-                ) {
-                    if (x < minX) minX = x;
-                    if (y < minY) minY = y;
-                    if (x > maxX) maxX = x;
-                    if (y > maxY) maxY = y;
-                }
-            }
-        }
-
-        if (maxX === -1) {
-            throw new Error(system("solver.chessBoardNotFound"));
-        }
-
-        // Scale sample-space bounds back to canvas pixel space, then to CSS pixels.
-        const pixelScaleX = width / SAMPLE_SIZE;
-        const pixelScaleY = height / SAMPLE_SIZE;
-        const rect = canvas.getBoundingClientRect();
-        const cssScaleX = rect.width / width;
-        const cssScaleY = rect.height / height;
-
-        return {
-            x: minX * pixelScaleX * cssScaleX,
-            y: minY * pixelScaleY * cssScaleY,
-            width:  (maxX - minX + 1) * pixelScaleX * cssScaleX,
-            height: (maxY - minY + 1) * pixelScaleY * cssScaleY,
-            rect
-        };
-    }
-
-    function dispatchChessMatchClickAt(canvas, clientX, clientY) {
-        const eventOptions = { bubbles: true, cancelable: true, clientX, clientY, button: 0 };
-        canvas.dispatchEvent(new MouseEvent('mousedown', eventOptions));
-        canvas.dispatchEvent(new MouseEvent('mouseup', eventOptions));
-        canvas.dispatchEvent(new MouseEvent('click', eventOptions));
     }
 
     function getChessMatchProps(reactState) {
@@ -10515,6 +10887,108 @@ function One() {
         return reactState.props.challenge ?? null;
     }
 
+    function getChessMatchRuntimeState(reactState) {
+        const hookStateCandidates = Array.isArray(reactState?.hooks)
+            ? reactState.hooks.map(hook => hook?.current)
+            : [];
+        const candidates = [...hookStateCandidates, getChessMatchProps(reactState)];
+
+        return candidates.find(candidate => candidate
+            && typeof candidate === 'object'
+            && typeof candidate.boardFen === 'string'
+            && Array.isArray(candidate.moveHistory)
+        ) || null;
+    }
+
+    function isChessBoardController(candidate) {
+        return candidate
+            && typeof candidate === 'object'
+            && typeof candidate.makeMove === 'function'
+            && typeof candidate.observeGameState === 'function'
+            && typeof candidate.updateUserInteraction === 'function';
+    }
+
+    function getChessBoardController(reactState, canvas = null) {
+        const controllerFromKnownState = Array.isArray(reactState?.hooks)
+            ? reactState.hooks.map(hook => hook?.current).find(isChessBoardController)
+            : null;
+        if (controllerFromKnownState) {
+            return controllerFromKnownState;
+        }
+
+        // Matches and lessons mount the same board controller at different React
+        // depths and hook positions. Walk every canvas ancestor and identify the
+        // controller by its public API instead of assuming either number.
+        const chessCanvas = canvas ?? document.querySelector(CHESS_MATCH_BOT_CONFIG.chessCanvasSelector);
+        const fiberKey = chessCanvas && Object.keys(chessCanvas).find(key => (
+            key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$')
+        ));
+
+        for (let fiber = fiberKey ? chessCanvas[fiberKey] : null; fiber; fiber = fiber.return) {
+            for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+                const candidate = hook.memoizedState?.current;
+                if (isChessBoardController(candidate)) {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function getChessControllerGameState(controller) {
+        const gameController = Object.values(controller).find(candidate => candidate
+            && typeof candidate === 'object'
+            && typeof candidate.makeMove === 'function'
+            && typeof candidate.makeMoveAndClearSelection === 'function'
+            && typeof candidate.gameState?.g2 === 'function'
+        );
+
+        return gameController?.gameState.g2() ?? null;
+    }
+
+    function isUciChessMove(value) {
+        return typeof value === 'string' && /^[a-h][1-8][a-h][1-8][nbrq]?$/.test(value);
+    }
+
+    function getChessBoardStateContext() {
+        const { canvas, reactState } = getChessCanvasAndState();
+        if (!canvas) {
+            throw new Error(system("solver.chessCanvasNotFound"));
+        }
+
+        const controller = getChessBoardController(reactState, canvas);
+        if (!controller) {
+            throw new Error('Could not find the live chess board controller.');
+        }
+
+        const gameState = getChessControllerGameState(controller);
+        if (typeof gameState?.getValidMoveFromString !== 'function') {
+            throw new Error('Could not read the live chess game state.');
+        }
+
+        return { canvas, reactState, controller, gameState };
+    }
+
+    function makeChessMove(moveName) {
+        if (!isUciChessMove(moveName)) {
+            throw new Error(`Invalid UCI chess move: ${moveName}`);
+        }
+
+        const { controller, gameState } = getChessBoardStateContext();
+        const move = gameState.getValidMoveFromString(moveName);
+        if (!move) {
+            throw new Error(`Duolingo rejected ${moveName} as an invalid move.`);
+        }
+
+        // The second argument disables the Rive move animation. That makes the
+        // controller commit its model state directly even while the browser is
+        // backgrounded or occluded, where animation frames may be suspended.
+        controller.makeMove(move, false);
+        chessMatchDebugLog(`Played ${moveName} through the board controller.`);
+        return gameState;
+    }
+
     function isPlayingChessMatchAsBlack(reactState) {
         const chessProps = getChessMatchProps(reactState);
         return chessProps?.playerColor === 'black'
@@ -10522,79 +10996,92 @@ function One() {
             || chessProps?.orientation === 'black';
     }
 
-    function getChessMatchSquareData(squareName, playingAsBlack, bounds) {
-        let col = squareName.charCodeAt(0) - 97;
-        let row = 8 - parseInt(squareName[1], 10);
+    function isChessPvpMatch() {
+        return window.location.pathname.replace(/\/+$/, '').endsWith('/chess-pvp-session');
+    }
 
-        if (playingAsBlack) {
-            col = 7 - col;
-            row = 7 - row;
+    function getChessMatchPlayerElo(canvas, reactState) {
+        const hookElo = reactState?.hooks
+            ?.map(hook => hook?.current?.value?.chessEloRating)
+            .find(Number.isFinite);
+        if (Number.isFinite(hookElo)) return hookElo;
+
+        const fiberKey = Object.keys(canvas).find(key => key.startsWith('__reactFiber$'));
+        for (let fiber = fiberKey ? canvas[fiberKey] : null; fiber; fiber = fiber.return) {
+            const player = fiber.memoizedProps?.children?._owner?.stateNode?.props?.player;
+            if (Number.isFinite(player?.chessEloRating)) return player.chessEloRating;
         }
 
-        const sqWidth = bounds.width / 8;
-        const sqHeight = bounds.height / 8;
-
-        return { col, row, sqWidth, sqHeight };
+        throw new Error('Could not find the PvP player Elo for Kairos.');
     }
 
-    function getChessMatchBoardContext() {
-        const { canvas, reactState } = getChessMatchCanvasAndState();
-        if (!canvas) {
-            throw new Error(system("solver.chessCanvasNotFound"));
+    function getKairosUciMove(move) {
+        const candidate = typeof move === 'string'
+            ? move
+            : move?.uci ?? move?.move ?? null;
+        const normalized = String(candidate ?? '').trim().toLowerCase();
+        return /^[a-h][1-8][a-h][1-8][nbrq]?$/.test(normalized) ? normalized : null;
+    }
+
+    async function getChessPvpKairos() {
+        if (!chessPvpKairosPromise) {
+            chessPvpKairosPromise = Promise.resolve().then(() => {
+                const model = globalThis.DLPKairosModel;
+                if (!model?.weights) {
+                    throw new Error('Kairos model bundle did not load.');
+                }
+                return { model, predictThinkTime: DLPKairos.predictThinkTime };
+            }).catch(error => {
+                chessPvpKairosPromise = null;
+                throw error;
+            });
+        }
+        return chessPvpKairosPromise;
+    }
+
+    async function getChessPvpKairosThinkTime({ canvas, reactState, fen, moves }) {
+        const runtimeState = getChessMatchRuntimeState(reactState);
+        const playerColor = runtimeState?.playerColor
+            ?? reactState?.props?.challenge?.match?.playerColor;
+        const clockMs = runtimeState?.playerClocks?.[playerColor]
+            ?? reactState?.props?.challenge?.match?.[`${playerColor}PlayerClock`];
+        const opponentElo = reactState?.props?.challenge?.opponentEloRating;
+        if (!Number.isFinite(clockMs) || !Number.isFinite(opponentElo) || !playerColor) {
+            throw new Error('Could not find the PvP clock or opponent Elo for Kairos.');
         }
 
-        const playingAsBlack = isPlayingChessMatchAsBlack(reactState);
-        const bounds = getDynamicCSSBounds(canvas);
+        const { model, predictThinkTime } = await getChessPvpKairos();
+        const prediction = predictThinkTime({
+            fen_before_move: fen,
+            previous_move: getKairosUciMove(moves.at(-2)),
+            opponent_move: getKairosUciMove(moves.at(-1)),
+            elo: getChessMatchPlayerElo(canvas, reactState),
+            opponent_elo: opponentElo,
+            time_left: clockMs / 1000
+        }, model);
+        const lowerSeconds = Math.min(prediction.p25, prediction.p50);
+        const upperSeconds = Math.max(prediction.p25, prediction.p50);
+        const randomFraction = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000;
+        const baseThinkSeconds = lowerSeconds + (upperSeconds - lowerSeconds) * randomFraction;
+        const weightedThinkSeconds = Math.pow(baseThinkSeconds, 0.9);
+        const thinkTime = Math.max(1, Math.round(weightedThinkSeconds * 1000));
 
-        return { canvas, reactState, playingAsBlack, bounds };
-    }
-
-    function clickChessMatchBoardPoint(boardContext, pointX, pointY) {
-        const clientX = boardContext.bounds.rect.left + pointX;
-        const clientY = boardContext.bounds.rect.top + pointY;
-
-        dispatchChessMatchClickAt(boardContext.canvas, clientX, clientY);
-
-        return { clientX, clientY };
-    }
-
-    function clickChessMatchSquare(squareName) {
-        const boardContext = getChessMatchBoardContext();
-        const sq = getChessMatchSquareData(squareName, boardContext.playingAsBlack, boardContext.bounds);
-
-        const centerX = boardContext.bounds.x + (sq.col * sq.sqWidth) + (sq.sqWidth / 2);
-        const centerY = boardContext.bounds.y + (sq.row * sq.sqHeight) + (sq.sqHeight / 2);
-        const { clientX, clientY } = clickChessMatchBoardPoint(boardContext, centerX, centerY);
-
-        chessMatchDebugLog(`Clicked ${squareName} @ X: ${Math.round(clientX)}, Y: ${Math.round(clientY)}`);
-    }
-
-    function clickChessMatchPromotionQueen(promotionSquare) {
-        const boardContext = getChessMatchBoardContext();
-        const promoCol = promotionSquare.charCodeAt(0) - 97;
-        let targetSquare;
-
-        if (!boardContext.playingAsBlack) {
-            const targetVisualCol = Math.max(0, Math.min(3, promoCol - 2));
-            const targetColChar = String.fromCharCode(97 + targetVisualCol);
-            targetSquare = `${targetColChar}6`;
-        } else {
-            const promoVisualCol = 7 - promoCol;
-            const targetVisualCol = Math.max(0, Math.min(3, promoVisualCol - 2));
-            const targetColChar = String.fromCharCode(97 + (7 - targetVisualCol));
-            targetSquare = `${targetColChar}3`;
-        }
-
-        const sq = getChessMatchSquareData(targetSquare, boardContext.playingAsBlack, boardContext.bounds);
-        const cornerX = boardContext.bounds.x + (sq.col * sq.sqWidth) + sq.sqWidth;
-        const cornerY = boardContext.bounds.y + (sq.row * sq.sqHeight) + sq.sqHeight;
-        const { clientX, clientY } = clickChessMatchBoardPoint(boardContext, cornerX, cornerY);
-
-        chessMatchDebugLog(`Promoting! Clicked Queen near ${targetSquare} @ X: ${Math.round(clientX)}, Y: ${Math.round(clientY)}`);
+        chessMatchDebugLog(
+            `Kairos PvP time: ${thinkTime} ms (base ${(baseThinkSeconds * 1000).toFixed(0)} ms weighted by seconds^0.9; p25 ${(prediction.p25 * 1000).toFixed(0)} ms, p50 ${(prediction.p50 * 1000).toFixed(0)} ms).`
+        );
+        return thinkTime;
     }
 
     function getCurrentChessMatchFen(reactState) {
-        const currentFen = reactState?.hooks?.[25]?.current;
+        // The live board FEN is held in the chess component's hook 25. The
+        // challenge.match object is a stale initial server snapshot.
+        const liveHookFen = reactState?.hooks?.[25]?.current;
+        if (typeof liveHookFen === 'string' && liveHookFen.trim()) {
+            return liveHookFen.trim();
+        }
+
+        const runtimeState = getChessMatchRuntimeState(reactState);
+        const currentFen = runtimeState?.boardFen;
 
         if (typeof currentFen !== 'string' || !currentFen.trim()) {
             throw new Error(system("solver.chessCurrentFenUnavailable"));
@@ -10604,7 +11091,22 @@ function One() {
     }
 
     function getCurrentChessMatchMoveSnapshot(reactState) {
-        const moves = reactState?.hooks?.[23]?.current;
+        // Hook 23 contains the complete live move sequence. Do not prefer
+        // challenge.match.moveHistory because that value remains stale.
+        const liveHookMoves = reactState?.hooks?.[23]?.current;
+        if (Array.isArray(liveHookMoves)) {
+            const lastMove = liveHookMoves.length > 0
+                ? liveHookMoves[liveHookMoves.length - 1]
+                : null;
+            return {
+                moves: liveHookMoves.slice(),
+                lastMove,
+                key: `${liveHookMoves.length}:${lastMove ?? ''}`
+            };
+        }
+
+        const runtimeState = getChessMatchRuntimeState(reactState);
+        const moves = runtimeState?.moveHistory;
         if (!Array.isArray(moves)) {
             throw new Error(system("solver.chessMovesUnavailable"));
         }
@@ -10619,19 +11121,26 @@ function One() {
 
     const sleepChessMatchLoop = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    async function waitForChessMatchClickDelay(squareName, isStillActive) {
-        await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.clickDelayMs);
-        if (isStillActive()) {
-            return true;
+    async function getChessMatchEngine() {
+        if (chessMatchEngine) return chessMatchEngine;
+        if (!chessMatchEngineStartPromise) {
+            chessMatchEngineStartPromise = (async () => {
+                const engine = await DLPChessMatchStockfish.createEngine({ hash: 16 });
+                try {
+                    await engine.ready;
+                } catch (error) {
+                    engine.destroy();
+                    throw error;
+                }
+                chessMatchEngine = engine;
+                chessMatchDebugLog('Stockfish 18 ASM is ready.');
+                return engine;
+            })().catch((error) => {
+                chessMatchEngineStartPromise = null;
+                throw error;
+            });
         }
-
-        try {
-            clickChessMatchSquare(squareName);
-        } catch (error) {
-            chessMatchDebugLog(`Failed to clear selected square ${squareName}: ${error.message}`);
-        }
-
-        return false;
+        return chessMatchEngineStartPromise;
     }
 
     function startChessMatchBotLoop() {
@@ -10659,7 +11168,7 @@ function One() {
                 }
 
                 try {
-                    const { canvas, reactState } = getChessMatchCanvasAndState();
+                    const { canvas, reactState } = getChessCanvasAndState();
                     if (!canvas) {
                         throw new Error(system("solver.chessCanvasNotFound"));
                     }
@@ -10673,7 +11182,6 @@ function One() {
                     }
 
                     const moveSnapshot = getCurrentChessMatchMoveSnapshot(reactState);
-                    const currentMoves = moveSnapshot.moves;
                     if (chessMatchBotLastObservedMoveKey === moveSnapshot.key) {
                         await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
                         continue;
@@ -10687,51 +11195,72 @@ function One() {
                     }
 
                     const currentFen = getCurrentChessMatchFen(reactState);
-                    chessMatchDebugLog(`Turn: ${currentFen.split(' ')[1].toUpperCase()} | Move: ${currentFen.split(' ')[5]}`);
-                    const requestBody = {
-                        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-                        moves: currentMoves,
-                        depth: 8
+                    const sideToMove = currentFen.split(/\s+/)[1]?.toLowerCase();
+                    const playerSide = isPlayingChessMatchAsBlack(reactState) ? 'b' : 'w';
+                    if (sideToMove !== playerSide) {
+                        chessMatchDebugLog('Waiting for opponent...');
+                        await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+                        continue;
                     }
 
-                    const response = await fetch(`https://api.duolingopro.net/legacy/chess/move`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(requestBody)
+                    const engine = await getChessMatchEngine();
+                    const isPvp = isChessPvpMatch();
+                    const useSmartPvpPause = isPvp && storageLocal.settings.smartPvpPause;
+                    const pauseSpeed = Math.max(0, Math.min(100, Number(storageLocal.settings.pauseSpeed) || 0));
+                    const thinkTime = useSmartPvpPause
+                        ? Math.max(1, Math.round((await getChessPvpKairosThinkTime({
+                            canvas,
+                            reactState,
+                            fen: currentFen,
+                            moves: moveSnapshot.moves
+                        })) * (1.6 - pauseSpeed / 100)))
+                        : CHESS_MATCH_ENGINE_TIME;
+                    chessMatchDebugLog(`Stockfish 18 ASM turn: ${sideToMove.toUpperCase()} | Move: ${currentFen.split(/\s+/)[5]}`);
+                    const stockfishSearchStartedAt = performance.now();
+                    const bestMove = await engine.getBestMove({
+                        fen: currentFen,
+                        moves: [],
+                        depth: CHESS_MATCH_ENGINE_DEPTH,
+                        time: thinkTime
                     });
-
-                    if (!response.ok) {
-                        throw new Error(systemFormat("solver.chessApiErrorStatus", { status: response.status }));
-                    }
-
-                    const data = await response.json();
-                    const bestMove = data.bestmove;
+                    const stockfishSearchElapsedMs = performance.now() - stockfishSearchStartedAt;
+                    chessMatchDebugLog(`Stockfish 18 ASM generated ${bestMove || 'no move'} in ${stockfishSearchElapsedMs.toFixed(1)} ms.`);
 
                     if (!bestMove) {
-                        chessMatchDebugLog('Waiting on opponent...');
-                    } else {
-                        chessMatchDebugLog(`API returned: ${bestMove}`);
+                        chessMatchDebugLog('Stockfish 18 ASM returned no move.');
+                        await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+                        continue;
+                    }
 
-                        const fromSquare = bestMove.slice(0, 2);
-                        const toSquare = bestMove.slice(2, 4);
-                        const isPromotion = bestMove.length === 5;
-                        chessMatchBotLastMove = bestMove;
+                    chessMatchDebugLog(`Stockfish 18 ASM returned: ${bestMove}`);
+                    if (useSmartPvpPause || (!isPvp && storageLocal.settings.smartPvpPause && storageLocal.settings.smartPracticePause)) {
+                        const targetPause = useSmartPvpPause ? thinkTime : 1600 - pauseSpeed * 13;
+                        const remainingThinkTime = Math.max(0, targetPause - stockfishSearchElapsedMs);
+                        if (remainingThinkTime > 0) {
+                            chessMatchDebugLog(`Kairos waiting remaining ${remainingThinkTime.toFixed(1)} ms before moving.`);
+                            await sleepChessMatchLoop(remainingThinkTime);
+                        }
+                        chessMatchDebugLog(
+                            `Kairos PvP think completed in ${(performance.now() - stockfishSearchStartedAt).toFixed(1)} ms.`
+                        );
 
-                        clickChessMatchSquare(fromSquare);
-                        if (!await waitForChessMatchClickDelay(fromSquare, () => chessMatchBotPlaying && isChessMatchPageActive())) {
-                            await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+                        const latestState = getChessCanvasAndState();
+                        const latestFen = latestState.reactState
+                            ? getCurrentChessMatchFen(latestState.reactState)
+                            : null;
+                        if (latestFen !== currentFen) {
+                            chessMatchDebugLog('Board changed during Kairos wait; discarding the stale move.');
+                            chessMatchBotLastObservedMoveKey = null;
                             continue;
                         }
-                        clickChessMatchSquare(toSquare);
-
-                        if (isPromotion) {
-                            chessMatchDebugLog('Pawn promotion detected. Waiting for UI...');
-                            await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.promotionDelayMs);
-                            clickChessMatchPromotionQueen(toSquare);
-                            chessMatchDebugLog('Waiting for promotion to process...');
-                            await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.postPromotionDelayMs);
-                        }
                     }
+                    if (!chessMatchBotPlaying || !isChessMatchPageActive()) {
+                        await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+                        continue;
+                    }
+
+                    makeChessMove(bestMove);
+                    chessMatchBotLastMove = bestMove;
                 } catch (error) {
                     chessMatchBotLastObservedMoveKey = null;
                     chessMatchDebugLog(`Error: ${error.message}`);
@@ -10747,25 +11276,81 @@ function One() {
 
     const CHESS_LESSON_BUTTON_ROW_ID = 'dlp-chess-lesson-button-row';
     function isChessLessonSolveContext() {
-        return !window.location.pathname.endsWith(CHESS_MATCH_BOT_CONFIG.chessPathSuffix)
+        return !CHESS_MATCH_BOT_CONFIG.chessPathSuffixes.some(
+            suffix => window.location.pathname.replace(/\/+$/, '').endsWith(suffix)
+        )
             && !!document.querySelector(CHESS_MATCH_BOT_CONFIG.chessCanvasSelector);
     }
 
     function getChessLessonReactState() {
-        const { reactState } = getChessMatchCanvasAndState();
-        if (!reactState?.props?.challenge?.chessPuzzleInfo) {
-            return null;
+        const canvas = document.querySelector(CHESS_MATCH_BOT_CONFIG.chessCanvasSelector);
+        const fiberKey = canvas && Object.keys(canvas).find(key => (
+            key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$')
+        ));
+
+        const getDetails = fiber => {
+            if (!fiber?.memoizedProps?.challenge?.chessPuzzleInfo) {
+                return null;
+            }
+
+            const hooks = [];
+            for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+                hooks.push(hook.memoizedState);
+            }
+            const hasLiveFen = hooks.some(hook => {
+                const value = hook?.current;
+                const fields = typeof value === 'string' ? value.trim().split(/\s+/) : [];
+                return fields[0]?.split('/').length === 8 && /^[wb]$/.test(fields[1] ?? '');
+            });
+
+            return hasLiveFen
+                ? { instance: fiber.stateNode, props: fiber.memoizedProps, hooks }
+                : null;
+        };
+
+        for (let fiber = fiberKey ? canvas[fiberKey] : null; fiber; fiber = fiber.return) {
+            const attachedDetails = getDetails(fiber);
+            if (attachedDetails) {
+                return attachedDetails;
+            }
+
+            const alternateDetails = getDetails(fiber.alternate);
+            if (alternateDetails) {
+                return alternateDetails;
+            }
         }
 
-        return reactState;
+        return null;
     }
 
     function getChessLessonLiveState() {
         const reactState = getChessLessonReactState();
-        const fen = reactState?.hooks?.[19]?.current ?? null;
-        const moves = Array.isArray(reactState?.hooks?.[18]?.current) ? reactState.hooks[18].current : [];
+        const hookValues = Array.isArray(reactState?.hooks)
+            ? reactState.hooks.map(hook => hook?.current)
+            : [];
+        const fenIndex = hookValues.findIndex(value => {
+            const fields = typeof value === 'string' ? value.trim().split(/\s+/) : [];
+            return fields[0]?.split('/').length === 8 && /^[wb]$/.test(fields[1] ?? '');
+        });
+        const adjacentMoves = fenIndex > 0 ? hookValues[fenIndex - 1] : null;
+        const populatedMoves = hookValues.find(value => (
+            Array.isArray(value) && value.length > 0 && value.every(isUciChessMove)
+        ));
+        const moves = Array.isArray(adjacentMoves) && adjacentMoves.every(isUciChessMove)
+            ? adjacentMoves
+            : populatedMoves ?? [];
+        const fen = fenIndex >= 0 ? hookValues[fenIndex] : null;
+        const controller = getChessBoardController(reactState);
+        const gameState = controller ? getChessControllerGameState(controller) : null;
+        const lastMove = moves.length > 0 ? moves[moves.length - 1] : null;
 
-        return { reactState, fen, moves };
+        return {
+            reactState,
+            fen,
+            moves,
+            gameState,
+            moveKey: `${moves.length}:${lastMove ?? ''}`
+        };
     }
 
     function getChessLessonSolutionLines(reactState) {
@@ -10790,7 +11375,15 @@ function One() {
             throw new Error(system("solver.chessLessonCorrectMovesMissing"));
         }
 
-        const primaryLine = String(correctMoves[0] ?? '').trim().split(/\s+/).filter(Boolean);
+        // correctMoves is normally the complete ordered move sequence, with one
+        // UCI move per array entry. Retain support for the older single-string
+        // representation where the whole line was space-delimited.
+        const normalizedCorrectMoves = correctMoves
+            .map(move => String(move ?? '').trim())
+            .filter(Boolean);
+        const primaryLine = normalizedCorrectMoves.every(isUciChessMove)
+            ? normalizedCorrectMoves
+            : String(normalizedCorrectMoves[0] ?? '').split(/\s+/).filter(Boolean);
         if (primaryLine.length === 0) {
             throw new Error(system("solver.chessLessonCorrectMovesEmpty"));
         }
@@ -10799,7 +11392,7 @@ function One() {
     }
 
     function getChessLessonRemainingMoveSequence() {
-        const { reactState, fen, moves: currentMoves } = getChessLessonLiveState();
+        const { reactState, moves: currentMoves } = getChessLessonLiveState();
         const solutionLines = getChessLessonSolutionLines(reactState);
 
         for (let i = 0; i < solutionLines.length; i++) {
@@ -10823,39 +11416,74 @@ function One() {
         throw new Error(system("solver.chessLessonCurrentMovesDiverged"));
     }
 
+    function isChessLessonComplete() {
+        const nextButton = document.querySelector('[data-test="player-next"]');
+        return !!nextButton && nextButton.getAttribute('aria-disabled') === 'false';
+    }
+
+    async function waitForChessLessonMoveCycle(previousGameState, previousMoveKey, moveName, runContext) {
+        const deadline = Date.now() + CHESS_MATCH_BOT_CONFIG.moveStateTimeoutMs;
+
+        while (true) {
+            if (!isChessLessonRunContextActive(runContext)) {
+                return false;
+            }
+            const liveState = getChessLessonLiveState();
+            if (!liveState.reactState) {
+                return true;
+            }
+
+            const moveWasRecorded = liveState.moveKey !== previousMoveKey;
+            const boardStateChanged = liveState.gameState && liveState.gameState !== previousGameState;
+            const opponentFinished = !liveState.gameState
+                || liveState.gameState.currentPlayer === liveState.gameState.userColor;
+
+            if (moveWasRecorded && boardStateChanged && (opponentFinished || isChessLessonComplete())) {
+                return true;
+            }
+            if (Date.now() >= deadline) {
+                throw new Error(`Timed out waiting for ${moveName} and the resulting board state.`);
+            }
+
+            await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+        }
+    }
+
     async function playChessLessonCorrectMoves(runContext = null) {
         const moveSequence = getChessLessonRemainingMoveSequence();
         chessMatchDebugLog('Chess lesson move sequence:', moveSequence.join(' '));
 
-        for (let i = 0; i < moveSequence.length; i++) {
+        const attemptedProgress = new Set();
+        while (true) {
             if (!isChessLessonRunContextActive(runContext)) {
                 return false;
             }
 
-            const move = moveSequence[i];
-            const fromSquare = move.slice(0, 2);
-            const toSquare = move.slice(2, 4);
-            const isPromotion = move.length === 5;
-
-            clickChessMatchSquare(fromSquare);
-            if (!await waitForChessMatchClickDelay(fromSquare, () => isChessLessonRunContextActive(runContext))) {
-                return false;
+            const remainingMoves = getChessLessonRemainingMoveSequence();
+            if (remainingMoves.length === 0) {
+                break;
             }
-            clickChessMatchSquare(toSquare);
 
-            if (isPromotion) {
-                await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.promotionDelayMs);
-                if (!isChessLessonRunContextActive(runContext)) {
-                    return false;
-                }
-                clickChessMatchPromotionQueen(toSquare);
-                await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.postPromotionDelayMs);
-            } else if (i < moveSequence.length - 1) {
-                await sleepChessMatchLoop(1200);
+            const beforeMove = getChessLessonLiveState();
+            const move = remainingMoves[0];
+            const attemptKey = `${beforeMove.moveKey}:${move}`;
+            if (attemptedProgress.has(attemptKey)) {
+                throw new Error('Chess lesson did not advance through its expected move sequence.');
+            }
+            attemptedProgress.add(attemptKey);
+
+            const previousGameState = makeChessMove(move);
+
+            if (!await waitForChessLessonMoveCycle(
+                previousGameState,
+                beforeMove.moveKey,
+                move,
+                runContext
+            )) {
+                return false;
             }
         }
 
-        await sleepChessMatchLoop(800);
         if (!isChessLessonRunContextActive(runContext)) {
             return false;
         }
@@ -12815,9 +13443,9 @@ function One() {
                     // A. Start Timer
                     const startTime = Date.now();
                     const targetDelay = storageLocal.settings.randomSolveSpeed
-                        ? Math.floor((
-                            storageLocal.settings.randomSolveSpeedRange[0] + (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) *
-                            (storageLocal.settings.randomSolveSpeedRange[1] - storageLocal.settings.randomSolveSpeedRange[0])
+                        ? Math.floor(chooseWeightedRandomSolveSpeed(
+                            storageLocal.settings.randomSolveSpeedRange,
+                            storageLocal.settings.randomSolveSpeedDistribution
                         ) * 1000)
                         : 400;
 
