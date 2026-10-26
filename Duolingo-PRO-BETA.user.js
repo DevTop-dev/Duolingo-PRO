@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1ALPHA.05.2
+// @version      3.1BETA.05.2
 // @description  The fastest Duolingo XP farmer, now with Gems and Free Duolingo Max, working as of October 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
@@ -17,9 +17,9 @@
 // USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 // YOU CAN ALSO REVIEW THE TERMS AND CONDITIONS AT https://www.duolingopro.net/terms ALONG WITH THE PRIVACY POLICY AT https://www.duolingopro.net/privacy
 
-const VERSION_NUMBER = "06";
-const STORAGE_LOCAL_VERSION = "06";
-const STORAGE_SESSION_VERSION = "06";
+const VERSION_NUMBER = "13";
+const STORAGE_LOCAL_VERSION = "13";
+const STORAGE_SESSION_VERSION = "13";
 const VERSION_NAME = "BETA.05.2";
 const VERSION_FULL = "3.1BETA.05.2";
 const VERSION_FORMAL = "3.1 BETA.05.2";
