@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Duolingo PRO v2
+// @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.05.1-lm12
+// @version      3.1BETA.05.1-lm15
 // @description  Duolingo XP farmer, with Gems, Free Duolingo Max, and Chess support. Working as of September 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
@@ -16,9 +16,9 @@
 // USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 // YOU CAN ALSO REVIEW THE TERMS AND CONDITIONS AT https://www.duolingopro.net/terms ALONG WITH THE PRIVACY POLICY AT https://www.duolingopro.net/privacy
 
-const DLP_LM_DEBUG = false; // true = naplózás a konzolba
+const DLP_LM_DEBUG = false; // true = log to the console
 const dlpLog = (...a) => { if (DLP_LM_DEBUG) console.log(...a); };
-dlpLog("[ListenMatch] patch v10 betöltve");
+dlpLog("[ListenMatch] patch loaded");
 const DLP_AUDIO_LOG = [];
 (function installDlpAudioHook() {
     try {
@@ -37,7 +37,7 @@ const DLP_AUDIO_LOG = [];
             const oo = W.XMLHttpRequest.prototype.open;
             W.XMLHttpRequest.prototype.open = function (m, u, ...r) { rec(u); return oo.call(this, m, u, ...r); };
         }
-    } catch (e) { dlpLog('[ListenMatch] audio hook hiba', e); }
+    } catch (e) { dlpLog('[ListenMatch] audio hook error', e); }
 })();
 
 const VERSION_NUMBER = "12";
@@ -10501,6 +10501,14 @@ function One() {
         }
 
         if (maxX === -1) {
+            // Pixel-based detection found no difference (e.g. the board fills the whole canvas, or the canvas
+            // content cannot be read). If the canvas is square, treat the whole canvas as the board.
+            const fbRect = canvas.getBoundingClientRect();
+            const ratio = fbRect.height ? fbRect.width / fbRect.height : 0;
+            console.warn('[ListenMatch] chess board detection fallback: canvas', width + 'x' + height, 'CSS', Math.round(fbRect.width) + 'x' + Math.round(fbRect.height), 'corner-average', [bgR, bgG, bgB, bgA].map(Math.round));
+            if (fbRect.width > 100 && ratio > 0.96 && ratio < 1.04) {
+                return { x: 0, y: 0, width: fbRect.width, height: fbRect.height, rect: fbRect, fallback: true };
+            }
             throw new Error(system("solver.chessBoardNotFound"));
         }
 
@@ -11008,7 +11016,7 @@ function One() {
         return h;
     }
 
-    // Biztonsági háló: ha a gombok valamiért nem jöttek létre, újrapróbáljuk
+    // Safety net: retry creating the buttons if they were not created
     let dlpLastAddButtonsErr = '';
     setInterval(() => {
         try {
@@ -11019,12 +11027,12 @@ function One() {
         } catch (e) {
             if (String(e && e.message) !== dlpLastAddButtonsErr) {
                 dlpLastAddButtonsErr = String(e && e.message);
-                console.warn('[ListenMatch] addButtons hiba:', e);
+                console.warn('[ListenMatch] addButtons error:', e);
             }
         }
     }, 1000);
 
-    // A lebegő SOLVE gombok csak feladat közben maradjanak az oldalon
+    // Keep the floating SOLVE buttons on the page only while in a lesson
     setInterval(() => {
         const h = document.getElementById('DLP_ListenMatch_Host');
         if (!h) return;
@@ -12890,8 +12898,10 @@ function One() {
         updateChessCanvasPointerEvents();
 
         function startSolvingLoop(runToken) {
-            if (solvingLoopRunning || !isAutoMode || runToken !== solveAllRunToken) return;
+            if (!isAutoMode || runToken !== solveAllRunToken) return; // (the old loop stops by itself at its next check)
 
+            if (window.__dlpLoopToken === runToken) return; // a loop is already running for this run
+            window.__dlpLoopToken = runToken;
             solvingLoopRunning = true;
             let initialUrl = window.location.href;
 
@@ -12916,7 +12926,12 @@ function One() {
                         : 400;
 
                     // B. Run Logic (Wait for it to fully finish)
-                    await solve(true, true, runToken);
+                    try {
+                        await solve(true, true, runToken);
+                    } catch (loopError) {
+                        console.warn('[ListenMatch] solve() error, the loop continues:', loopError);
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
                     await new Promise(resolve => setTimeout(resolve, 100));
 
                     // Check if stopped while solve() was running
@@ -12933,7 +12948,7 @@ function One() {
                 }
 
                 // Cleanup when loop breaks
-                solvingLoopRunning = false;
+                if (runToken === solveAllRunToken || !isAutoMode) solvingLoopRunning = false;
                 updateChessCanvasPointerEvents();
 
                 if (isAutoMode && runToken !== solveAllRunToken) {
@@ -12950,7 +12965,7 @@ function One() {
 
     async function solve(check = true, skip = false, runToken = solveAllRunToken) {
         if (isSolveBusy) {
-            if (Date.now() - (window.__dlpBusySince || 0) > 15000) { isSolveBusy = false; } // elakadt futás feloldása
+            if (Date.now() - (window.__dlpBusySince || 0) > 15000 && !isChessLessonSolveContext()) { isSolveBusy = false; } // release a stuck run
             else return;
         }
         isSolveBusy = true;
@@ -13155,7 +13170,7 @@ function One() {
                 ]);
             }
         } else if (challengeType) {
-            dlpLog("[ListenMatch] solve() típus:", challengeType, "| sol.type:", window.sol && window.sol.type);
+            dlpLog("[ListenMatch] solve() type:", challengeType, "| sol.type:", window.sol && window.sol.type);
             if (debug) console.log("Challenge Type: " + challengeType);
 
             let playerFooter1 = document.getElementById("session/PlayerFooter");
@@ -13224,10 +13239,10 @@ function One() {
                 ]);
             }
         } else {
-            // Ismeretlen képernyő (pl. rádiós történet-bevezető): ha van "Tovább" gomb, megnyomjuk
+            // Unknown screen (e.g. a radio story intro): press the Continue button if there is one
             const contBtn = dlpFindContinueButton();
             if (contBtn) {
-                dlpLog('[ListenMatch] ismeretlen képernyő, Tovább gomb:', contBtn.outerHTML.slice(0, 250));
+                dlpLog('[ListenMatch] unknown screen, Continue button:', contBtn.outerHTML.slice(0, 250));
                 contBtn.click();
                 await new Promise(resolve => setTimeout(resolve, 300));
             } else {
@@ -13439,7 +13454,7 @@ function One() {
                     const noText = toks.filter(b => !b.querySelector('[data-test="challenge-tap-token-text"]'));
                     const withText = toks.length - noText.length;
                     const isLM = !document.querySelector('[data-test="word-bank"]') && noText.length >= 2 && withText >= 2;
-                    if (isLM) dlpLog('[ListenMatch] felismerve, sol.type =', window.sol && window.sol.type);
+                    if (isLM) dlpLog('[ListenMatch] detected, sol.type =', window.sol && window.sol.type);
                     return isLM;
                 })()) {
                     return 'Listen Match';
@@ -13480,7 +13495,7 @@ function One() {
     function dlpDumpSol() {
         try {
             return JSON.stringify(window.sol, (k, v) => typeof v === 'function' ? undefined : (typeof v === 'string' && v.length > 120 ? v.slice(0, 120) + '…' : v), 1).slice(0, 3500);
-        } catch (e) { return 'dump hiba: ' + e; }
+        } catch (e) { return 'dump error: ' + e; }
     }
 
     async function solveListenMatch(runContext = null) {
@@ -13499,7 +13514,7 @@ function One() {
         const words = () => live(getTokens().filter(isWord));
 
         dlpLog(tag, 'sol:', dlpDumpSol());
-        // Biztos párosítás: kiderítjük, melyik hang melyik szó (React adatból, vagy a lejátszott hang URL-jéből)
+        // Deterministic matching: find out which audio belongs to which word (from React data, or from the played audio URL)
         const norm = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase();
         const pairs = Array.isArray(window.sol && window.sol.pairs) ? window.sol.pairs : [];
         const fiberOf = (el) => { const k = Object.keys(el).find(k => k.startsWith('__reactFiber$')); return k ? el[k] : null; };
@@ -13539,7 +13554,7 @@ function One() {
             for (let f = f0, d = 0; f && d < 8; d++, f = f.return) {
                 if (f.memoizedProps && typeof f.memoizedProps === 'object') dbg.push(d + ':' + Object.keys(f.memoizedProps).join(','));
             }
-            dlpLog(tag, 'audio csempe React prop-ok:', dbg.join(' | '));
+            dlpLog(tag, 'audio tile React props:', dbg.join(' | '));
         }
         let deterministicOk = 0;
         for (let i = 0; i < audioAll.length; i++) {
@@ -13548,21 +13563,21 @@ function One() {
             if (isDone(audioBtn)) continue;
             let pair = pairFromFiber(audioBtn);
             let how = 'react';
-            if (!pair) { pair = await pairFromAudio(audioBtn); how = 'hang-url'; }
-            if (!pair) { dlpLog(tag, i + '. hang: nem azonosítható', 'audio log:', JSON.stringify(DLP_AUDIO_LOG.slice(-3))); continue; }
+            if (!pair) { pair = await pairFromAudio(audioBtn); how = 'audio-url'; }
+            if (!pair) { dlpLog(tag, i + '. audio: cannot identify', 'audio log:', JSON.stringify(DLP_AUDIO_LOG.slice(-3))); continue; }
             const wordBtn = words().find(w => norm(textOf(w)) === norm(pair.translation));
-            if (!wordBtn) { dlpLog(tag, i + '. hang: nincs csempe ehhez:', pair.translation); continue; }
+            if (!wordBtn) { dlpLog(tag, i + '. audio: no tile for:', pair.translation); continue; }
             audioBtn.click();
             await sleep(250);
             wordBtn.click();
             await sleep(700);
             if (isDone(audioBtn)) deterministicOk++;
-            dlpLog(tag, i + '. hang →', pair.translation, '(' + how + ') kész:', isDone(audioBtn));
+            dlpLog(tag, i + '. audio →', pair.translation, '(' + how + ') done:', isDone(audioBtn));
         }
-        dlpLog(tag, 'biztos párosítás:', deterministicOk, '/', audioAll.length);
+        dlpLog(tag, 'deterministic matches:', deterministicOk, '/', audioAll.length);
         dlpLog(tag, 'start; audio:', audio().length, 'words:', words().length, 'all tokens:', getTokens().length);
         if (audio().length === 0 || words().length === 0) {
-            dlpLog(tag, 'nem találtam hang/szó csempéket', getTokens().map(b => b.outerHTML.slice(0, 200)));
+            dlpLog(tag, 'could not find audio/word tiles', getTokens().map(b => b.outerHTML.slice(0, 200)));
             return false;
         }
 
@@ -13581,7 +13596,7 @@ function One() {
                 await sleep(700);
                 if (isDone(audioBtn)) { matched = true; break; }
             }
-            dlpLog(tag, 'kör vége, párosítva:', matched, 'maradt:', audio().length);
+            dlpLog(tag, 'round finished, matched:', matched, 'remaining:', audio().length);
             if (!matched) break;
         }
         return true;
@@ -13632,16 +13647,16 @@ function One() {
                         return false;
                     };
                     if (!idxs.length || idxs.some(i => !choices[i])) {
-                        dlpLog('[ListenMatch] radio: nincs ismert helyes válasz, sol:', dlpDumpSol());
+                        dlpLog('[ListenMatch] radio: no known correct answer, sol:', dlpDumpSol());
                     } else if (window.__dlpRadioKey === key) {
-                        await clickNext(); // már válaszoltunk erre a kérdésre, csak tovább
+                        await clickNext(); // already answered this question, just continue
                     } else {
                         window.__dlpRadioKey = key;
-                        dlpLog('[ListenMatch] radio klikk, idxs:', idxs, 'sol.type:', sol.type, 'sol:', dlpDumpSol());
+                        dlpLog('[ListenMatch] radio click, idxs:', idxs, 'sol.type:', sol.type, 'sol:', dlpDumpSol());
                         for (const i of idxs) { choices[i].click(); await sleep(300); }
                         await sleep(300);
                         const ok = await clickNext();
-                        dlpLog('[ListenMatch] player-next kattintva:', ok);
+                        dlpLog('[ListenMatch] player-next clicked:', ok);
                     }
                 }
             }
