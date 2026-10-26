@@ -42,9 +42,9 @@ const DLP_AUDIO_LOG = [];
     } catch (e) { dlpLog('[ListenMatch] audio hook error', e); }
 })();
 
-const VERSION_NUMBER = "06";
-const STORAGE_LOCAL_VERSION = "06";
-const STORAGE_SESSION_VERSION = "06";
+const VERSION_NUMBER = "13";
+const STORAGE_LOCAL_VERSION = "13";
+const STORAGE_SESSION_VERSION = "13";
 const VERSION_NAME = "BETA.05.2";
 const VERSION_FULL = "3.1BETA.05.2";
 const VERSION_FORMAL = "3.1 BETA.05.2";
