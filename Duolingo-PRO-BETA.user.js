@@ -42,6 +42,34 @@ const DLP_AUDIO_LOG = [];
     } catch (e) { dlpLog('[ListenMatch] audio hook error', e); }
 })();
 
+// ===== Chess course detection (decides what the legacy Practice card does) =====
+let DLP_IS_CHESS_COURSE = (() => { try { return sessionStorage.getItem('dlp_is_chess_course') === '1'; } catch (e) { return false; } })();
+async function dlpRefreshCourse() {
+    try {
+        const jwt = document.cookie.split('; ').find(c => c.startsWith('jwt_token='))?.split('=')[1];
+        if (!jwt) return;
+        const sub = JSON.parse(atob(jwt.split('.')[1])).sub;
+        const res = await fetch('https://www.duolingo.com/2017-06-30/users/' + sub + '?fields=learningLanguage,currentCourseId', {
+            headers: { Authorization: 'Bearer ' + jwt, Accept: 'application/json' }
+        });
+        if (!res.ok) return;
+        const d = await res.json();
+        const isChess = d.learningLanguage === 'chess' || /CHESS/i.test(String(d.currentCourseId || ''));
+        DLP_IS_CHESS_COURSE = isChess;
+        let changed = false;
+        try {
+            sessionStorage.setItem('dlp_is_chess_course', isChess ? '1' : '0');
+            const courseKey = String(d.currentCourseId || d.learningLanguage || '');
+            const prev = sessionStorage.getItem('dlp_course_key');
+            sessionStorage.setItem('dlp_course_key', courseKey);
+            changed = !!prev && !!courseKey && prev !== courseKey;
+        } catch (e) {}
+        if (changed) window.location.reload(); // course/language switched: reload so the card text and the lessons match it
+    } catch (e) { /* keep the last known value */ }
+}
+dlpRefreshCourse();
+setInterval(dlpRefreshCourse, 4000);
+
 const VERSION_NUMBER = "06";
 const STORAGE_LOCAL_VERSION = "06";
 const STORAGE_SESSION_VERSION = "06";
@@ -258,7 +286,8 @@ const systemText = {
             gemsPrompt: "How many Gems would you like to gain?",
             superPrompt: "Would you like to redeem 3 days of Super Duolingo?",
             pathLessonsPrompt: "How many lessons would you like to solve on the path?",
-            practicesPrompt: "How many practices (match) would you like to solve?",
+            practicesPrompt: "How many practices would you like to solve?",
+            matchesPrompt: "How many matches would you like to solve?",
             listeningPracticesPrompt: "How many listening practices would you like to solve? (Requires Super Duolingo)",
             chessMatchesPrompt: "How many chess matches against Oscar would you like to play?",
             repeatLessonsPrompt: "Which and how many lessons would you like to repeat?",
@@ -1203,7 +1232,7 @@ function Two() {
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_PRACTICE_1_ID">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.practicesPrompt")}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" data-dlp-practice-prompt="1" style="align-self: stretch;">${system("requests.practicesPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
@@ -1307,7 +1336,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_PRACTICE_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.practicesPrompt")}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" data-dlp-practice-prompt="1" style="align-self: stretch;">${system("requests.practicesPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
@@ -5149,6 +5178,7 @@ function One() {
 
     function getLegacyPlaceholder(category, mode) {
         const isPracticeLike = category === 'practice' || category === 'listen';
+        if (mode === 'lesson' && category === 'practice' && DLP_IS_CHESS_COURSE) return '0 chess-match';
         if (mode === 'lesson') return isPracticeLike ? system("legacy.placeholders.practices") : system("legacy.placeholders.lessons");
         if (mode === 'xp') return system("legacy.placeholders.xp");
         if (mode === 'time') return system("legacy.placeholders.minutes");
@@ -5159,6 +5189,21 @@ function One() {
         if (!input) return;
         input.placeholder = getLegacyPlaceholder(category, mode);
     }
+
+    let lastChessUi = null;
+    setInterval(() => {
+        try {
+            if (lastChessUi === DLP_IS_CHESS_COURSE) return;
+            const prompts = document.querySelectorAll('[data-dlp-practice-prompt]');
+            if (!prompts.length) return;
+            lastChessUi = DLP_IS_CHESS_COURSE;
+            prompts.forEach(p => { p.textContent = system(DLP_IS_CHESS_COURSE ? 'requests.matchesPrompt' : 'requests.practicesPrompt'); });
+            for (const id of ['DLP_Get_PRACTICE_1_ID', 'DLP_Get_PRACTICE_2_ID']) {
+                const input = document.getElementById(id)?.querySelector('#DLP_Inset_Input_1_ID');
+                if (input) setLegacyPlaceholder(input, 'practice', storageSession.legacy.practice.type);
+            }
+        } catch (e) { /* ignore */ }
+    }, 500);
 
     function inputCheck2() {
         const ids = {
@@ -5548,7 +5593,7 @@ function One() {
     let pageSwitching = false;
     function process1() {
         if (window.location.href.includes('/lesson') || window.location.href.includes('/practice') || window.location.href.includes('/practice-hub/listening-practice')) return;
-        if (storageSession.legacy.status === 'practice') return; // practice = Oscar chess matches (own runner)
+        if (storageSession.legacy.status === 'practice' && DLP_IS_CHESS_COURSE) return; // chess course: Oscar match runner drives practice
         if (storageSession.legacy.status && (storageSession.legacy[storageSession.legacy.status].amount > 0 || storageSession.legacy[storageSession.legacy.status].type === 'infinity')) {
             if (pageSwitching) return;
             pageSwitching = true;
@@ -5561,7 +5606,7 @@ function One() {
     }
     setInterval(process1, 500);
     function process2() {
-        if (storageSession.legacy.status === 'practice') return; // practice = Oscar chess matches (own runner)
+        if (storageSession.legacy.status === 'practice' && DLP_IS_CHESS_COURSE) return; // chess course: Oscar match runner drives practice
         if (storageSession.legacy.status && (storageSession.legacy[storageSession.legacy.status].amount > 0 || storageSession.legacy[storageSession.legacy.status].type === 'infinity')) {
             if (storageSession.legacy.status === 'path') {
                 window.location.href = "https://duolingo.com/lesson";
@@ -11314,7 +11359,7 @@ function One() {
         const isHubPage = () => pathNow().endsWith(HUB_PATH);
         const isPvpPage = () => pathNow().endsWith('/chess-pvp-session');
         const cfg = () => storageSession.legacy.practice;
-        const isRunning = () => storageSession.legacy.status === 'practice';
+        const isRunning = () => storageSession.legacy.status === 'practice' && DLP_IS_CHESS_COURSE;
         let startedOnThisPage = false;
         let countedThisPage = false;
         let nextAt = 0;
