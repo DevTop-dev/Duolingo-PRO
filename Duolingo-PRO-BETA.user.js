@@ -18,58 +18,6 @@
 // USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 // YOU CAN ALSO REVIEW THE TERMS AND CONDITIONS AT https://www.duolingopro.net/terms ALONG WITH THE PRIVACY POLICY AT https://www.duolingopro.net/privacy
 
-const DLP_LM_DEBUG = false; // true = log to the console
-const dlpLog = (...a) => { if (DLP_LM_DEBUG) console.log(...a); };
-dlpLog("[ListenMatch] patch loaded");
-const DLP_AUDIO_LOG = [];
-(function installDlpAudioHook() {
-    try {
-        const W = (typeof unsafeWindow !== 'undefined' && unsafeWindow) ? unsafeWindow : window;
-        const rec = (u) => { try { if (u) DLP_AUDIO_LOG.push({ t: Date.now(), u: String(u) }); } catch (e) {} };
-        const mp = W.HTMLMediaElement && W.HTMLMediaElement.prototype;
-        if (mp && mp.play) {
-            const op = mp.play;
-            mp.play = function (...a) { rec(this.currentSrc || this.src); return op.apply(this, a); };
-        }
-        if (W.fetch) {
-            const of = W.fetch;
-            W.fetch = function (...a) { try { rec(typeof a[0] === 'string' ? a[0] : (a[0] && a[0].url)); } catch (e) {} return of.apply(this, a); };
-        }
-        if (W.XMLHttpRequest) {
-            const oo = W.XMLHttpRequest.prototype.open;
-            W.XMLHttpRequest.prototype.open = function (m, u, ...r) { rec(u); return oo.call(this, m, u, ...r); };
-        }
-    } catch (e) { dlpLog('[ListenMatch] audio hook error', e); }
-})();
-
-// ===== Chess course detection (decides what the legacy Practice card does) =====
-let DLP_IS_CHESS_COURSE = (() => { try { return sessionStorage.getItem('dlp_is_chess_course') === '1'; } catch (e) { return false; } })();
-async function dlpRefreshCourse() {
-    try {
-        const jwt = document.cookie.split('; ').find(c => c.startsWith('jwt_token='))?.split('=')[1];
-        if (!jwt) return;
-        const sub = JSON.parse(atob(jwt.split('.')[1])).sub;
-        const res = await fetch('https://www.duolingo.com/2017-06-30/users/' + sub + '?fields=learningLanguage,currentCourseId', {
-            headers: { Authorization: 'Bearer ' + jwt, Accept: 'application/json' }
-        });
-        if (!res.ok) return;
-        const d = await res.json();
-        const isChess = d.learningLanguage === 'chess' || /CHESS/i.test(String(d.currentCourseId || ''));
-        DLP_IS_CHESS_COURSE = isChess;
-        let changed = false;
-        try {
-            sessionStorage.setItem('dlp_is_chess_course', isChess ? '1' : '0');
-            const courseKey = String(d.currentCourseId || d.learningLanguage || '');
-            const prev = sessionStorage.getItem('dlp_course_key');
-            sessionStorage.setItem('dlp_course_key', courseKey);
-            changed = !!prev && !!courseKey && prev !== courseKey;
-        } catch (e) {}
-        if (changed) window.location.reload(); // course/language switched: reload so the card text and the lessons match it
-    } catch (e) { /* keep the last known value */ }
-}
-dlpRefreshCourse();
-setInterval(dlpRefreshCourse, 4000);
-
 const VERSION_NUMBER = "06";
 const STORAGE_LOCAL_VERSION = "06";
 const STORAGE_SESSION_VERSION = "06";
@@ -141,6 +89,29 @@ function duplicateCheck() {
     }
 }
 
+
+// Records audio/media URLs so the listening solvers can identify what was played. It has to run outside One()
+// because it must be installed before the page starts its own requests.
+const DLP_AUDIO_LOG = [];
+(function installDlpAudioHook() {
+    try {
+        const W = (typeof unsafeWindow !== 'undefined' && unsafeWindow) ? unsafeWindow : window;
+        const rec = (u) => { try { if (u) DLP_AUDIO_LOG.push({ t: Date.now(), u: String(u) }); } catch (e) {} };
+        const mp = W.HTMLMediaElement && W.HTMLMediaElement.prototype;
+        if (mp && mp.play) {
+            const op = mp.play;
+            mp.play = function (...a) { rec(this.currentSrc || this.src); return op.apply(this, a); };
+        }
+        if (W.fetch) {
+            const of = W.fetch;
+            W.fetch = function (...a) { try { rec(typeof a[0] === 'string' ? a[0] : (a[0] && a[0].url)); } catch (e) {} return of.apply(this, a); };
+        }
+        if (W.XMLHttpRequest) {
+            const oo = W.XMLHttpRequest.prototype.open;
+            W.XMLHttpRequest.prototype.open = function (m, u, ...r) { rec(u); return oo.call(this, m, u, ...r); };
+        }
+    } catch (e) { if (debug) console.log('[ListenMatch] audio hook error', e); }
+})();
 
 function getSystemLanguage() {
     const langCookie = document.cookie
@@ -289,7 +260,6 @@ const systemText = {
             practicesPrompt: "How many practices would you like to solve?",
             matchesPrompt: "How many matches would you like to solve?",
             listeningPracticesPrompt: "How many listening practices would you like to solve? (Requires Super Duolingo)",
-            chessMatchesPrompt: "How many chess matches against Oscar would you like to play?",
             repeatLessonsPrompt: "Which and how many lessons would you like to repeat?",
             xpBoostPrompt: "Would you like to redeem an XP Boost?",
             streakFreezesPrompt: "How many Streak Freezes would you like to get?",
@@ -3215,6 +3185,9 @@ function One() {
             legacy: {
                 page: 0,
                 status: false,
+                chessCourse: false,
+                courseKey: "",
+                inMatch: false,
                 path: {
                     type: "lesson",
                     amount: 0
@@ -5176,9 +5149,36 @@ function One() {
     const DLP_Get_LESSON_1_ID = document.getElementById("DLP_Get_LESSON_1_ID");
     const DLP_Get_LESSON_2_ID = document.getElementById("DLP_Get_LESSON_2_ID");
 
+    // ===== Course tracking (decides what the legacy Practice card does) =====
+    // Stored in storageSession.legacy (chessCourse, courseKey). One request on page load and one when the user
+    // lands on /learn or /practice-hub (that is where a language switch ends up), never more than once per 5 s, no polling.
+    const isChessCourse = () => !!storageSession.legacy.chessCourse;
+    let courseCheckedAt = 0;
+    async function refreshCourse() {
+        if (Date.now() - courseCheckedAt < 5000) return;
+        courseCheckedAt = Date.now();
+        try {
+            const jwt = document.cookie.split('; ').find(c => c.startsWith('jwt_token='))?.split('=')[1];
+            if (!jwt) return;
+            const sub = JSON.parse(atob(jwt.split('.')[1])).sub;
+            const res = await fetch('https://www.duolingo.com/2017-06-30/users/' + sub + '?fields=learningLanguage,currentCourseId', {
+                headers: { Authorization: 'Bearer ' + jwt, Accept: 'application/json' }
+            });
+            if (!res.ok) return;
+            const d = await res.json();
+            const courseKey = String(d.currentCourseId || d.learningLanguage || '');
+            const prevKey = storageSession.legacy.courseKey;
+            storageSession.legacy.chessCourse = d.learningLanguage === 'chess' || /CHESS/i.test(courseKey);
+            storageSession.legacy.courseKey = courseKey;
+            saveStorageSession();
+            if (prevKey && courseKey && prevKey !== courseKey) window.location.reload(); // course switched: reload so the texts and lessons match it
+        } catch (e) { /* keep the last known value */ }
+    }
+    refreshCourse();
+
     function getLegacyPlaceholder(category, mode) {
         const isPracticeLike = category === 'practice' || category === 'listen';
-        if (mode === 'lesson' && category === 'practice' && DLP_IS_CHESS_COURSE) return '0 chess-match';
+        if (mode === 'lesson' && category === 'practice' && isChessCourse()) return '0 chess-match';
         if (mode === 'lesson') return isPracticeLike ? system("legacy.placeholders.practices") : system("legacy.placeholders.lessons");
         if (mode === 'xp') return system("legacy.placeholders.xp");
         if (mode === 'time') return system("legacy.placeholders.minutes");
@@ -5193,11 +5193,11 @@ function One() {
     let lastChessUi = null;
     setInterval(() => {
         try {
-            if (lastChessUi === DLP_IS_CHESS_COURSE) return;
+            if (lastChessUi === isChessCourse()) return;
             const prompts = document.querySelectorAll('[data-dlp-practice-prompt]');
             if (!prompts.length) return;
-            lastChessUi = DLP_IS_CHESS_COURSE;
-            prompts.forEach(p => { p.textContent = system(DLP_IS_CHESS_COURSE ? 'requests.matchesPrompt' : 'requests.practicesPrompt'); });
+            lastChessUi = isChessCourse();
+            prompts.forEach(p => { p.textContent = system(isChessCourse() ? 'requests.matchesPrompt' : 'requests.practicesPrompt'); });
             for (const id of ['DLP_Get_PRACTICE_1_ID', 'DLP_Get_PRACTICE_2_ID']) {
                 const input = document.getElementById(id)?.querySelector('#DLP_Inset_Input_1_ID');
                 if (input) setLegacyPlaceholder(input, 'practice', storageSession.legacy.practice.type);
@@ -5341,6 +5341,7 @@ function One() {
                 if (location.href !== url) {
                     updateInputsAfterPageSwitch();
                     url = location.href;
+                    if (/^\/(learn|practice-hub)/.test(location.pathname)) refreshCourse();
                 }
             }
             ['pushState', 'replaceState'].forEach(method => {
@@ -5593,7 +5594,7 @@ function One() {
     let pageSwitching = false;
     function process1() {
         if (window.location.href.includes('/lesson') || window.location.href.includes('/practice') || window.location.href.includes('/practice-hub/listening-practice')) return;
-        if (storageSession.legacy.status === 'practice' && DLP_IS_CHESS_COURSE) return; // chess course: Oscar match runner drives practice
+        if (storageSession.legacy.status === 'practice' && isChessCourse()) return; // chess course: Oscar match runner drives practice
         if (storageSession.legacy.status && (storageSession.legacy[storageSession.legacy.status].amount > 0 || storageSession.legacy[storageSession.legacy.status].type === 'infinity')) {
             if (pageSwitching) return;
             pageSwitching = true;
@@ -5606,7 +5607,7 @@ function One() {
     }
     setInterval(process1, 500);
     function process2() {
-        if (storageSession.legacy.status === 'practice' && DLP_IS_CHESS_COURSE) return; // chess course: Oscar match runner drives practice
+        if (storageSession.legacy.status === 'practice' && isChessCourse()) return; // chess course: Oscar match runner drives practice
         if (storageSession.legacy.status && (storageSession.legacy[storageSession.legacy.status].amount > 0 || storageSession.legacy[storageSession.legacy.status].type === 'infinity')) {
             if (storageSession.legacy.status === 'path') {
                 window.location.href = "https://duolingo.com/lesson";
@@ -11359,7 +11360,7 @@ function One() {
         const isHubPage = () => pathNow().endsWith(HUB_PATH);
         const isPvpPage = () => pathNow().endsWith('/chess-pvp-session');
         const cfg = () => storageSession.legacy.practice;
-        const isRunning = () => storageSession.legacy.status === 'practice' && DLP_IS_CHESS_COURSE;
+        const isRunning = () => storageSession.legacy.status === 'practice' && isChessCourse();
         let startedOnThisPage = false;
         let countedThisPage = false;
         let nextAt = 0;
@@ -11367,9 +11368,8 @@ function One() {
         let lastTick = Date.now();
         let fraction = 0;
         const pageLoadedAt = Date.now();
-        const FLAG = 'dlp_oscar_in_match';
-        const flagGet = () => { try { return sessionStorage.getItem(FLAG) === '1'; } catch (e) { return false; } };
-        const flagSet = (v) => { try { if (v) sessionStorage.setItem(FLAG, '1'); else sessionStorage.removeItem(FLAG); } catch (e) {} };
+        const flagGet = () => !!storageSession.legacy.inMatch;
+        const flagSet = (v) => { if (!!storageSession.legacy.inMatch !== !!v) { storageSession.legacy.inMatch = !!v; saveStorageSession(); } };
         const leftMatchManually = flagGet();
 
         let resumeNow = false;
@@ -14339,6 +14339,8 @@ function One() {
             return 'error';
         }
     }
+
+    function dlpLog(...a) { if (debug) console.log(...a); }
 
     function dlpDumpSol() {
         try {
